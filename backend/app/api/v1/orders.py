@@ -1,0 +1,61 @@
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.core.database import get_db
+from app.models.order import OrderStatus
+from app.models.user import User
+from app.schemas.order import OrderCancelRequest, OrderCreate, OrderListOut, OrderOut
+from app.services import order_service
+
+router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+@router.post("", response_model=OrderOut, status_code=201)
+async def create_order(
+    data: OrderCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await order_service.create_order(db, data, current_user)
+
+
+@router.get("", response_model=list[OrderListOut])
+async def list_orders(
+    customer_id: uuid.UUID | None = None,
+    status: OrderStatus | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return await order_service.list_orders(
+        db, customer_id=customer_id, status=status, limit=limit, offset=offset
+    )
+
+
+@router.get("/{order_id}", response_model=OrderOut)
+async def get_order(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    order = await order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return order
+
+
+@router.post("/{order_id}/cancel", response_model=OrderOut)
+async def cancel_order(
+    order_id: uuid.UUID,
+    body: OrderCancelRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = await order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return await order_service.cancel_order(db, order, current_user, body.reason)
