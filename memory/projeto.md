@@ -45,7 +45,24 @@ backend/app/models/    # SQLAlchemy ORM
 backend/app/schemas/   # Pydantic v2
 backend/app/services/  # lógica de negócio
 backend/alembic/       # migrations
-frontend/              # React + Vite (a criar)
+frontend/              # React 18 + Vite + TypeScript + Tailwind (completo — Fase 1)
+  src/api/             # axios client + endpoints
+  src/stores/          # Zustand (auth)
+  src/components/      # ui/ + layout/
+  src/pages/           # Login, Dashboard, Customers, Products, Orders, Receivables
+  src/utils/format.ts  # formatCurrency, formatDate, formatUnit, formatPayment...
 hardware-agent/        # Fase 4
 memory/                # este arquivo e outros
 ```
+
+## Frontend — Status
+- ✅ Fase 1 completa: Login, Dashboard, Clientes, Produtos, Novo Pedido, Pedidos, Fiado
+- Dev: cd frontend && npm run dev (porta 5173; precisa adicionar Node ao PATH no Windows)
+- Proxy Vite: /api → http://localhost:8000 (backend)
+- Build produção: npm run build → dist/ servido pelo Nginx no Docker
+- Dockerfile + nginx.conf criados — em produção na porta 3000
+
+## GitHub / Deploy — Pendente
+- gh CLI instalado mas não autenticado — executar: gh auth login
+- Coolify MCP não cria projetos — criar via UI do Coolify
+- Após criar repo GitHub: gh repo create hortifacil-pdv --private --source=. --remote=origin --push

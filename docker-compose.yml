@@ -1,6 +1,15 @@
 version: "3.9"
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
   api:
     build:
       context: ./backend
@@ -22,3 +31,4 @@ services:
 
 # O PostgreSQL não está aqui pois o servidor já existe.
 # Configurar DATABASE_URL no .env apontando para o servidor existente.
+# Em produção o frontend (porta 3000) faz proxy de /api para o api (porta 8000).
