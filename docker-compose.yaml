@@ -3,8 +3,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
+    networks:
+      - default
+      - coolify
     depends_on:
       - api
     restart: unless-stopped
@@ -29,3 +32,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+  coolify:
+    external: true
