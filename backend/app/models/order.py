@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
-order_number_seq = Sequence("order_number_seq", start=1)
+order_number_seq = Sequence("order_number_seq", start=1, metadata=Base.metadata)
 
 
 class PaymentType(str, enum.Enum):
