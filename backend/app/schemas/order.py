@@ -48,6 +48,12 @@ class OrderCreate(BaseModel):
         return self
 
 
+class OrderInvoiceUpdate(BaseModel):
+    invoice_number: str | None = None
+    invoice_series: str | None = None
+    invoice_key: str | None = None
+
+
 class OrderOut(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -60,6 +66,9 @@ class OrderOut(BaseModel):
     payment_type: PaymentType
     status: OrderStatus
     notes: str | None
+    invoice_number: str | None
+    invoice_series: str | None
+    invoice_key: str | None
     created_at: datetime
     created_by_name: str
     items: list[OrderItemOut]

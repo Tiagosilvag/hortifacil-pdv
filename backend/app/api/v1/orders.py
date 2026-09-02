@@ -8,7 +8,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.order import OrderStatus
 from app.models.user import User
-from app.schemas.order import OrderCancelRequest, OrderCreate, OrderListOut, OrderOut
+from app.schemas.order import OrderCancelRequest, OrderCreate, OrderInvoiceUpdate, OrderListOut, OrderOut
 from app.services import order_service
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -59,6 +59,18 @@ async def get_order(
     return order
 
 
+@router.post("/{order_id}/deliver", response_model=OrderOut)
+async def deliver_order(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = await order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return await order_service.deliver_order(db, order, current_user)
+
+
 @router.post("/{order_id}/cancel", response_model=OrderOut)
 async def cancel_order(
     order_id: uuid.UUID,
@@ -70,3 +82,16 @@ async def cancel_order(
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     return await order_service.cancel_order(db, order, current_user, body.reason)
+
+
+@router.patch("/{order_id}/invoice", response_model=OrderOut)
+async def update_invoice(
+    order_id: uuid.UUID,
+    body: OrderInvoiceUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    order = await order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return await order_service.update_invoice(db, order, body)

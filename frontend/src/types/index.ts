@@ -76,6 +76,9 @@ export interface Order {
   payment_type: PaymentType
   status: OrderStatus
   notes: string | null
+  invoice_number: string | null
+  invoice_series: string | null
+  invoice_key: string | null
   created_by_name: string
   created_at: string
   items: OrderItem[]

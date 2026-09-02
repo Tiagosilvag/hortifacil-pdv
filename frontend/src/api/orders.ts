@@ -38,7 +38,23 @@ export async function getOrder(id: string): Promise<Order> {
   return data
 }
 
+export async function deliverOrder(id: string): Promise<Order> {
+  const { data } = await api.post<Order>(`/orders/${id}/deliver`)
+  return data
+}
+
 export async function cancelOrder(id: string, reason?: string): Promise<Order> {
   const { data } = await api.post<Order>(`/orders/${id}/cancel`, { reason })
+  return data
+}
+
+export interface InvoiceUpdate {
+  invoice_number: string | null
+  invoice_series: string | null
+  invoice_key: string | null
+}
+
+export async function updateInvoice(id: string, body: InvoiceUpdate): Promise<Order> {
+  const { data } = await api.patch<Order>(`/orders/${id}/invoice`, body)
   return data
 }

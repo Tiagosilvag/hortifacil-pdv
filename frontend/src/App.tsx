@@ -10,6 +10,7 @@ import CustomerDetail from '@/pages/customers/CustomerDetail'
 import ProductList from '@/pages/products/ProductList'
 import NewOrder from '@/pages/orders/NewOrder'
 import OrderList from '@/pages/orders/OrderList'
+import OrderDetail from '@/pages/orders/OrderDetail'
 import ReceivableList from '@/pages/receivables/ReceivableList'
 import Settings from '@/pages/settings/Settings'
 import SalesReport from '@/pages/reports/SalesReport'
@@ -90,6 +91,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <OrderList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/:id"
+          element={
+            <ProtectedRoute>
+              <OrderDetail />
             </ProtectedRoute>
           }
         />

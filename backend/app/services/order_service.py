@@ -12,7 +12,7 @@ from app.models.order import Order, OrderItem, OrderStatus, PaymentType
 from app.models.product import Product
 from app.models.receivable import Receivable, ReceivableStatus
 from app.models.user import User
-from app.schemas.order import OrderCreate
+from app.schemas.order import OrderCreate, OrderInvoiceUpdate
 from app.services import customer_service
 
 
@@ -28,11 +28,13 @@ async def create_order(
         customer = result.scalar_one_or_none()
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente não encontrado")
-        if customer.is_blocked and data.payment_type == PaymentType.installment:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cliente bloqueado. Saldo em aberto: R$ {customer.balance_due:.2f} / Limite: R$ {customer.credit_limit:.2f}",
-            )
+
+        if data.payment_type == PaymentType.installment:
+            if customer.is_blocked:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cliente bloqueado. Saldo em aberto: R$ {customer.balance_due:.2f} / Limite: R$ {customer.credit_limit:.2f}",
+                )
 
     items_data: list[tuple[Product, Decimal]] = []
     total = Decimal("0.00")
@@ -54,6 +56,20 @@ async def create_order(
     total = (total - data.discount).quantize(Decimal("0.01"))
     if total < 0:
         total = Decimal("0.00")
+
+    # Validar limite de crédito para fiado
+    if data.payment_type == PaymentType.installment and customer:
+        if customer.credit_limit > 0:
+            disponivel = customer.credit_limit - customer.balance_due
+            if total > disponivel:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Valor do pedido (R$ {total:.2f}) excede o crédito disponível "
+                        f"(R$ {disponivel:.2f}). "
+                        f"Limite: R$ {customer.credit_limit:.2f} | Em aberto: R$ {customer.balance_due:.2f}"
+                    ),
+                )
 
     order = Order(
         customer_id=data.customer_id,
@@ -134,6 +150,20 @@ async def list_orders(
     return list(result.scalars().all())
 
 
+async def deliver_order(
+    db: AsyncSession, order: Order, current_user: User
+) -> Order:
+    if order.status != OrderStatus.pending:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pedido não pode ser entregue pois está com status '{order.status.value}'",
+        )
+    order.status = OrderStatus.delivered
+    await db.commit()
+    await db.refresh(order)
+    return order
+
+
 async def cancel_order(
     db: AsyncSession, order: Order, current_user: User, reason: str | None = None
 ) -> Order:
@@ -169,3 +199,19 @@ async def cancel_order(
     await db.commit()
     await db.refresh(order)
     return order
+
+
+async def update_invoice(
+    db: AsyncSession, order: Order, data: OrderInvoiceUpdate
+) -> Order:
+    order.invoice_number = data.invoice_number
+    order.invoice_series = data.invoice_series
+    order.invoice_key = data.invoice_key
+    await db.commit()
+    await db.refresh(order)
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.customer))
+        .where(Order.id == order.id)
+    )
+    return result.scalar_one()

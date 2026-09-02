@@ -59,6 +59,11 @@ export default function NewOrder() {
   const discountValue = parseFloat(discount) || 0
   const total = Math.max(0, subtotal - discountValue)
 
+  const creditAvailable = selectedCustomer && selectedCustomer.credit_limit > 0
+    ? selectedCustomer.credit_limit - selectedCustomer.balance_due
+    : null
+  const exceedsCredit = paymentType === 'installment' && creditAvailable !== null && total > creditAvailable
+
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id)
@@ -102,6 +107,10 @@ export default function NewOrder() {
     if (cart.length === 0) { setApiError('Adicione pelo menos um produto'); return }
     if (paymentType === 'installment' && !selectedCustomer) {
       setApiError('Selecione um cliente para venda fiado')
+      return
+    }
+    if (exceedsCredit) {
+      setApiError(`Valor excede o crédito disponível (R$ ${creditAvailable!.toFixed(2).replace('.', ',')})`)
       return
     }
     setApiError('')
@@ -317,6 +326,17 @@ export default function NewOrder() {
                   Cliente bloqueado — não é possível vender fiado
                 </p>
               )}
+              {exceedsCredit && (
+                <div className="mt-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg px-3 py-2">
+                  <p className="text-xs text-red-700 dark:text-red-400 font-medium flex items-center gap-1">
+                    <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                    Limite insuficiente
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                    Disponível: {formatCurrency(creditAvailable!)} · Em aberto: {formatCurrency(selectedCustomer!.balance_due)} · Limite: {formatCurrency(selectedCustomer!.credit_limit)}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Discount */}
@@ -378,7 +398,7 @@ export default function NewOrder() {
               loading={mutation.isPending}
               size="lg"
               className="w-full"
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || exceedsCredit || (paymentType === 'installment' && !!selectedCustomer?.is_blocked)}
             >
               Confirmar Pedido
             </Button>

@@ -50,6 +50,10 @@ class Order(Base):
         Enum(OrderStatus), default=OrderStatus.pending, nullable=False
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Nota Fiscal
+    invoice_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    invoice_series: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    invoice_key: Mapped[str | None] = mapped_column(String(44), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
