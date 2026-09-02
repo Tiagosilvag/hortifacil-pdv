@@ -457,7 +457,7 @@ function CartItemList({
           </span>
           <button
             onClick={() => removeItem(product.id)}
-            className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-200 dark:text-red-950 hover:text-red-500 dark:hover:text-red-400 transition-colors"
           >
             <XMarkIcon className="w-4 h-4" />
           </button>

@@ -253,7 +253,7 @@ export default function CustomerDetail() {
                         {order.status !== 'cancelled' && (
                           <button
                             onClick={() => setCancelTarget(order)}
-                            className="text-xs px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            className="text-xs px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-300 dark:text-red-900 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                           >
                             Cancelar
                           </button>

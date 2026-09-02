@@ -315,8 +315,8 @@ export default function Settings() {
                         onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
                         className={`p-1.5 rounded-lg transition-colors ${
                           u.is_active
-                            ? 'hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400'
-                            : 'hover:bg-green-50 dark:hover:bg-green-900/30 text-slate-400 dark:text-slate-500 hover:text-green-600 dark:hover:text-green-400'
+                            ? 'hover:bg-red-50 dark:hover:bg-red-900/30 text-red-300 dark:text-red-900 hover:text-red-500 dark:hover:text-red-400'
+                            : 'hover:bg-green-50 dark:hover:bg-green-900/30 text-green-300 dark:text-green-900 hover:text-green-600 dark:hover:text-green-400'
                         }`}
                         title={u.is_active ? 'Desativar' : 'Ativar'}
                       >
