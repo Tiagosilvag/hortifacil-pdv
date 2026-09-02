@@ -33,18 +33,18 @@ async def get_admin(db) -> User:
 
 async def seed_products(db) -> list[Product]:
     products = [
-        Product(name="Alface Crespa", unit_type=UnitType.unit, price=Decimal("2.50"), stock=150),
-        Product(name="Tomate Italiano", unit_type=UnitType.kg, price=Decimal("6.90"), stock=80),
-        Product(name="Banana Prata", unit_type=UnitType.kg, price=Decimal("4.50"), stock=120),
-        Product(name="Cenoura", unit_type=UnitType.kg, price=Decimal("3.80"), stock=90),
-        Product(name="Batata Inglesa", unit_type=UnitType.kg, price=Decimal("5.20"), stock=200),
-        Product(name="Cebola", unit_type=UnitType.kg, price=Decimal("4.00"), stock=100),
-        Product(name="Maçã Fuji", unit_type=UnitType.kg, price=Decimal("8.90"), stock=60),
-        Product(name="Laranja Pera", unit_type=UnitType.kg, price=Decimal("3.50"), stock=180),
-        Product(name="Pepino Japonês", unit_type=UnitType.unit, price=Decimal("1.80"), stock=70),
-        Product(name="Couve-flor", unit_type=UnitType.unit, price=Decimal("6.00"), stock=40),
-        Product(name="Brócolis", unit_type=UnitType.unit, price=Decimal("5.50"), stock=35),
-        Product(name="Manga Tommy", unit_type=UnitType.unit, price=Decimal("3.00"), stock=55),
+        Product(name="Alface Crespa", unit_type=UnitType.unit, price=Decimal("2.50")),
+        Product(name="Tomate Italiano", unit_type=UnitType.kg, price=Decimal("6.90")),
+        Product(name="Banana Prata", unit_type=UnitType.kg, price=Decimal("4.50")),
+        Product(name="Cenoura", unit_type=UnitType.kg, price=Decimal("3.80")),
+        Product(name="Batata Inglesa", unit_type=UnitType.kg, price=Decimal("5.20")),
+        Product(name="Cebola", unit_type=UnitType.kg, price=Decimal("4.00")),
+        Product(name="Maçã Fuji", unit_type=UnitType.kg, price=Decimal("8.90")),
+        Product(name="Laranja Pera", unit_type=UnitType.kg, price=Decimal("3.50")),
+        Product(name="Pepino Japonês", unit_type=UnitType.unit, price=Decimal("1.80")),
+        Product(name="Couve-flor", unit_type=UnitType.unit, price=Decimal("6.00")),
+        Product(name="Brócolis", unit_type=UnitType.unit, price=Decimal("5.50")),
+        Product(name="Manga Tommy", unit_type=UnitType.unit, price=Decimal("3.00")),
     ]
     for p in products:
         db.add(p)
