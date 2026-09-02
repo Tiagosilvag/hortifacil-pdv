@@ -151,8 +151,6 @@ async def seed_orders(db, admin: User, customers: list[Customer], products: list
                 amount=total,
                 status=ReceivableStatus.open,
                 created_at=order.created_at,
-                created_by_id=admin.id,
-                created_by_name=admin.name,
             )
             db.add(rec)
             receivables.append((order.customer_id, total))
