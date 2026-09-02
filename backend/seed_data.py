@@ -3,16 +3,20 @@ Script para popular o banco com dados de exemplo.
 Execute UMA vez após o banco estar vazio:
 
   docker exec -it <api-container> python seed_data.py
+
+Para resetar e reinserir, passe --reset:
+
+  docker exec -it <api-container> python seed_data.py --reset
 """
 import asyncio
+import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 
 from app.core.database import AsyncSessionLocal
-from app.core.security import hash_password
 from app.models.customer import Customer
 from app.models.order import Order, OrderItem, OrderStatus, PaymentType
 from app.models.product import Product, UnitType
@@ -31,20 +35,30 @@ async def get_admin(db) -> User:
     return user
 
 
+async def reset_data(db):
+    await db.execute(delete(Receivable))
+    await db.execute(delete(OrderItem))
+    await db.execute(delete(Order))
+    await db.execute(delete(Customer))
+    await db.execute(delete(Product))
+    await db.commit()
+    print("Dados anteriores removidos.")
+
+
 async def seed_products(db) -> list[Product]:
     products = [
-        Product(name="Alface Crespa", unit_type=UnitType.unit, price=Decimal("2.50")),
-        Product(name="Tomate Italiano", unit_type=UnitType.kg, price=Decimal("6.90")),
-        Product(name="Banana Prata", unit_type=UnitType.kg, price=Decimal("4.50")),
-        Product(name="Cenoura", unit_type=UnitType.kg, price=Decimal("3.80")),
-        Product(name="Batata Inglesa", unit_type=UnitType.kg, price=Decimal("5.20")),
-        Product(name="Cebola", unit_type=UnitType.kg, price=Decimal("4.00")),
-        Product(name="Maçã Fuji", unit_type=UnitType.kg, price=Decimal("8.90")),
-        Product(name="Laranja Pera", unit_type=UnitType.kg, price=Decimal("3.50")),
-        Product(name="Pepino Japonês", unit_type=UnitType.unit, price=Decimal("1.80")),
-        Product(name="Couve-flor", unit_type=UnitType.unit, price=Decimal("6.00")),
-        Product(name="Brócolis", unit_type=UnitType.unit, price=Decimal("5.50")),
-        Product(name="Manga Tommy", unit_type=UnitType.unit, price=Decimal("3.00")),
+        Product(name="Alface Crespa", unit_type=UnitType.unit, price=Decimal("2.50"), category="Verduras"),
+        Product(name="Tomate Italiano", unit_type=UnitType.kg, price=Decimal("6.90"), category="Legumes"),
+        Product(name="Banana Prata", unit_type=UnitType.kg, price=Decimal("4.50"), category="Frutas"),
+        Product(name="Cenoura", unit_type=UnitType.kg, price=Decimal("3.80"), category="Legumes"),
+        Product(name="Batata Inglesa", unit_type=UnitType.kg, price=Decimal("5.20"), category="Legumes"),
+        Product(name="Cebola", unit_type=UnitType.kg, price=Decimal("4.00"), category="Legumes"),
+        Product(name="Maçã Fuji", unit_type=UnitType.kg, price=Decimal("8.90"), category="Frutas"),
+        Product(name="Laranja Pera", unit_type=UnitType.kg, price=Decimal("3.50"), category="Frutas"),
+        Product(name="Pepino Japonês", unit_type=UnitType.unit, price=Decimal("1.80"), category="Legumes"),
+        Product(name="Couve-flor", unit_type=UnitType.unit, price=Decimal("6.00"), category="Verduras"),
+        Product(name="Brócolis", unit_type=UnitType.unit, price=Decimal("5.50"), category="Verduras"),
+        Product(name="Manga Tommy", unit_type=UnitType.unit, price=Decimal("3.00"), category="Frutas"),
     ]
     for p in products:
         db.add(p)
@@ -76,7 +90,7 @@ async def seed_orders(db, admin: User, customers: list[Customer], products: list
         created_at = now - timedelta(days=days_ago)
         total = sum(Decimal(str(qty)) * price for _, qty, price in items_data)
         order = Order(
-            customer_id=customer.id if customer else None,
+            customer_id=customer.id,
             total=total,
             discount=Decimal("0.00"),
             payment_type=payment_type,
@@ -88,40 +102,44 @@ async def seed_orders(db, admin: User, customers: list[Customer], products: list
         return order, items_data, total
 
     orders_to_create = [
-        # Pedidos em dinheiro - avulso e com cliente
-        make_order(None, PaymentType.cash,
+        # Dinheiro — clientes variados
+        make_order(customers[3], PaymentType.cash,
                    [(products[0], Decimal("3"), products[0].price),
                     (products[2], Decimal("2.5"), products[2].price)], days_ago=1),
         make_order(customers[4], PaymentType.cash,
                    [(products[1], Decimal("1.2"), products[1].price),
                     (products[3], Decimal("0.8"), products[3].price)], days_ago=2),
+        # PIX
         make_order(customers[0], PaymentType.pix,
                    [(products[6], Decimal("1.5"), products[6].price),
                     (products[7], Decimal("2"), products[7].price)], days_ago=3),
-        # Pedidos no cartão
+        # Cartão de crédito
         make_order(customers[2], PaymentType.credit_card,
                    [(products[4], Decimal("3"), products[4].price),
                     (products[5], Decimal("2"), products[5].price)], days_ago=4),
+        # Débito
         make_order(customers[5], PaymentType.debit_card,
                    [(products[8], Decimal("4"), products[8].price),
                     (products[9], Decimal("2"), products[9].price)], days_ago=5),
-        # Pedidos fiado
+        # Fiado — Maria Silva (R$ 200 limite)
         make_order(customers[0], PaymentType.installment,
                    [(products[0], Decimal("5"), products[0].price),
                     (products[2], Decimal("3"), products[2].price)], days_ago=7),
+        # Fiado — João Pereira (R$ 150 limite)
         make_order(customers[1], PaymentType.installment,
                    [(products[1], Decimal("2"), products[1].price),
                     (products[6], Decimal("1"), products[6].price)], days_ago=10),
+        # Fiado — Juliana Alves (R$ 250 limite)
         make_order(customers[6], PaymentType.installment,
                    [(products[3], Decimal("2"), products[3].price),
                     (products[11], Decimal("3"), products[11].price)], days_ago=15),
-        # Padaria com crédito alto
+        # Fiado — Padaria (limite alto R$ 1.000)
         make_order(customers[7], PaymentType.installment,
                    [(products[1], Decimal("10"), products[1].price),
                     (products[4], Decimal("15"), products[4].price),
                     (products[5], Decimal("8"), products[5].price)], days_ago=3),
-        # Pedido de hoje
-        make_order(None, PaymentType.pix,
+        # Pedido de hoje — PIX
+        make_order(customers[4], PaymentType.pix,
                    [(products[10], Decimal("2"), products[10].price),
                     (products[7], Decimal("3"), products[7].price)], days_ago=0),
     ]
@@ -159,7 +177,7 @@ async def seed_orders(db, admin: User, customers: list[Customer], products: list
 
     # Atualizar balance_due dos clientes com fiado
     from collections import defaultdict
-    customer_totals = defaultdict(Decimal)
+    customer_totals: dict = defaultdict(Decimal)
     for cid, total in receivables:
         customer_totals[cid] += total
 
@@ -175,7 +193,13 @@ async def seed_orders(db, admin: User, customers: list[Customer], products: list
 
 
 async def main():
+    do_reset = "--reset" in sys.argv
+
     async with AsyncSessionLocal() as db:
+        if do_reset:
+            print("Resetando dados anteriores...")
+            await reset_data(db)
+
         admin = await get_admin(db)
         print(f"Admin encontrado: {admin.name}")
 

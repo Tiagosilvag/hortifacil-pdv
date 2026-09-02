@@ -46,13 +46,13 @@ export default function NewOrder() {
   const { data: customers = [] } = useQuery({
     queryKey: ['customers-search', customerSearch],
     queryFn: () => listCustomers({ search: customerSearch }),
-    enabled: customerSearch.length >= 1,
+    enabled: showCustomerDrop,
   })
 
   const { data: products = [] } = useQuery({
     queryKey: ['products-search', productSearch],
     queryFn: () => listProducts({ search: productSearch }),
-    enabled: productSearch.length >= 1,
+    enabled: showProductDrop,
   })
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0)
