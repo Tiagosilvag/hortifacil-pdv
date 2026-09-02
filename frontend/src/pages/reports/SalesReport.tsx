@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChartBarIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { getSalesReport } from '@/api/reports'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatCurrency, formatDateShort } from '@/utils/format'
 
 type Preset = '7d' | '30d' | 'month' | 'custom'
 
@@ -55,7 +55,7 @@ export default function SalesReport() {
 
   const enabled = !!from && !!to && from <= to
 
-  const { data: report, isPending, isFetching, refetch } = useQuery({
+  const { data: report, isPending, isFetching } = useQuery({
     queryKey: ['sales-report', from, to],
     queryFn: () => getSalesReport(from, to),
     enabled,
@@ -124,7 +124,7 @@ export default function SalesReport() {
 
         {from && to && (
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-            {formatDate(from)} → {formatDate(to)}
+            {formatDateShort(from)} → {formatDateShort(to)}
           </p>
         )}
       </div>
@@ -145,34 +145,38 @@ export default function SalesReport() {
         <div className="flex flex-col gap-6">
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <SummaryCard label="Receita total" value={formatCurrency(report.total_revenue)} accent="green" />
-            <SummaryCard label="Pedidos" value={String(report.total_orders)} />
-            <SummaryCard label="Ticket médio" value={report.total_orders > 0 ? formatCurrency(report.total_revenue / report.total_orders) : '—'} />
-            <SummaryCard label="Cancelamentos" value={String(report.cancelled_orders)} accent="red" />
+            <SummaryCard label="Receita total" value={formatCurrency(report.total)} accent="green" />
+            <SummaryCard label="Pedidos" value={String(report.count)} />
+            <SummaryCard label="Ticket médio" value={report.count > 0 ? formatCurrency(report.avg_ticket) : '—'} />
+            <SummaryCard label="Cancelamentos" value={String(report.cancelled_count)} accent="red" />
           </div>
 
           {/* Payment breakdown */}
-          {Object.keys(report.by_payment).length > 0 && (
+          {report.by_payment.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
               <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Por forma de pagamento</h2>
               <div className="flex flex-col gap-3">
-                {Object.entries(report.by_payment)
-                  .sort(([, a], [, b]) => b.revenue - a.revenue)
-                  .map(([type, data]) => {
-                    const pct = report.total_revenue > 0
-                      ? (data.revenue / report.total_revenue) * 100
-                      : 0
-                    const colors = PAYMENT_COLORS[type] ?? { bar: 'bg-slate-400', text: 'text-slate-600 dark:text-slate-400' }
+                {report.by_payment
+                  .slice()
+                  .sort((a, b) => b.total - a.total)
+                  .map((item) => {
+                    const pct = report.total > 0 ? (item.total / report.total) * 100 : 0
+                    const colors = PAYMENT_COLORS[item.payment_type] ?? {
+                      bar: 'bg-slate-400 dark:bg-slate-500',
+                      text: 'text-slate-600 dark:text-slate-400',
+                    }
                     return (
-                      <div key={type}>
+                      <div key={item.payment_type}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-slate-700 dark:text-slate-300">
-                            {PAYMENT_LABELS[type] ?? type}
+                            {PAYMENT_LABELS[item.payment_type] ?? item.payment_type}
                           </span>
                           <div className="flex items-center gap-3 text-sm">
-                            <span className="text-slate-400 dark:text-slate-500">{data.count} pedido{data.count !== 1 ? 's' : ''}</span>
+                            <span className="text-slate-400 dark:text-slate-500">
+                              {item.count} pedido{item.count !== 1 ? 's' : ''}
+                            </span>
                             <span className={`font-semibold tabular-nums ${colors.text}`}>
-                              {formatCurrency(data.revenue)}
+                              {formatCurrency(item.total)}
                             </span>
                           </div>
                         </div>
@@ -197,10 +201,10 @@ export default function SalesReport() {
                 {report.by_day.map((day) => {
                   const pct = (day.total / maxDayTotal) * 100
                   return (
-                    <div key={day.date}>
+                    <div key={day.day}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-slate-500 dark:text-slate-400 w-24 shrink-0">
-                          {formatDate(day.date)}
+                          {formatDateShort(day.day)}
                         </span>
                         <div className="flex-1 mx-3 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div
@@ -209,7 +213,7 @@ export default function SalesReport() {
                           />
                         </div>
                         <div className="flex items-center gap-3 shrink-0 text-sm">
-                          <span className="text-slate-400 dark:text-slate-500 text-xs">{day.orders} pd.</span>
+                          <span className="text-slate-400 dark:text-slate-500 text-xs">{day.count} pd.</span>
                           <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 w-24 text-right">
                             {formatCurrency(day.total)}
                           </span>
@@ -222,13 +226,13 @@ export default function SalesReport() {
               <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-between text-sm">
                 <span className="text-slate-500 dark:text-slate-400">Total do período</span>
                 <span className="font-bold text-green-700 dark:text-green-400 tabular-nums">
-                  {formatCurrency(report.total_revenue)}
+                  {formatCurrency(report.total)}
                 </span>
               </div>
             </div>
           )}
 
-          {report.total_orders === 0 && (
+          {report.count === 0 && (
             <div className="text-center py-8 text-slate-400 dark:text-slate-500">
               <p>Nenhuma venda no período selecionado</p>
             </div>
