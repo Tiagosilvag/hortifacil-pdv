@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Cog6ToothIcon, PlusIcon, PencilIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'
+import {
+  Cog6ToothIcon,
+  PlusIcon,
+  PencilIcon,
+  XMarkIcon,
+  CheckIcon,
+  MagnifyingGlassIcon,
+} from '@heroicons/react/24/outline'
 import { listUsers, createUser, updateUser } from '@/api/users'
 import { getApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +22,7 @@ interface UserFormData {
   name: string
   email: string
   password: string
+  passwordConfirm: string
   role: 'admin' | 'operator'
   allowed_modules: ModuleKey[] | null
 }
@@ -23,9 +31,12 @@ const emptyForm: UserFormData = {
   name: '',
   email: '',
   password: '',
+  passwordConfirm: '',
   role: 'operator',
   allowed_modules: null,
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function ModuleCheckboxes({
   value,
@@ -76,26 +87,14 @@ function ModuleCheckboxes({
   )
 }
 
-function UserFormModal({
-  user,
-  onClose,
-}: {
-  user: User | null
-  onClose: () => void
-}) {
+function UserFormModal({ user, onClose }: { user: User | null; onClose: () => void }) {
   const qc = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
   const isEdit = !!user
 
   const [form, setForm] = useState<UserFormData>(
     user
-      ? {
-          name: user.name,
-          email: user.email,
-          password: '',
-          role: user.role,
-          allowed_modules: user.allowed_modules,
-        }
+      ? { name: user.name, email: user.email, password: '', passwordConfirm: '', role: user.role, allowed_modules: user.allowed_modules }
       : emptyForm
   )
   const [error, setError] = useState('')
@@ -129,16 +128,29 @@ function UserFormModal({
 
   const handleSubmit = () => {
     if (!form.name.trim()) { setError('Nome obrigatório'); return }
-    if (!isEdit && !form.email.trim()) { setError('E-mail obrigatório'); return }
-    if (!isEdit && !form.password.trim()) { setError('Senha obrigatória'); return }
+    if (form.name.trim().length < 2) { setError('Nome deve ter ao menos 2 caracteres'); return }
+
+    if (!isEdit) {
+      if (!form.email.trim()) { setError('E-mail obrigatório'); return }
+      if (!EMAIL_RE.test(form.email)) { setError('E-mail inválido'); return }
+      if (!form.password) { setError('Senha obrigatória'); return }
+    }
+
+    if (form.password) {
+      if (form.password.length < 6) { setError('Senha deve ter ao menos 6 caracteres'); return }
+      if (form.password !== form.passwordConfirm) { setError('As senhas não conferem'); return }
+    }
+
     setError('')
     mutation.mutate(form)
   }
 
+  const showPasswordConfirm = !!form.password || !isEdit
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-md flex flex-col gap-4">
+      <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-md flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">
             {isEdit ? 'Editar usuário' : 'Novo usuário'}
@@ -155,7 +167,7 @@ function UserFormModal({
           placeholder="Nome completo"
         />
 
-        {!isEdit && (
+        {!isEdit ? (
           <Input
             label="E-mail"
             type="email"
@@ -163,6 +175,14 @@ function UserFormModal({
             onChange={(e) => set('email', e.target.value)}
             placeholder="usuario@email.com"
           />
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
+            <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-600">
+              {user!.email}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">O e-mail não pode ser alterado após o cadastro.</p>
+          </div>
         )}
 
         <Input
@@ -170,8 +190,19 @@ function UserFormModal({
           type="password"
           value={form.password}
           onChange={(e) => set('password', e.target.value)}
-          placeholder="••••••••"
+          placeholder="Mínimo 6 caracteres"
+          hint={isEdit ? undefined : 'Mínimo 6 caracteres'}
         />
+
+        {showPasswordConfirm && (
+          <Input
+            label={isEdit ? 'Confirmar nova senha' : 'Confirmar senha'}
+            type="password"
+            value={form.passwordConfirm}
+            onChange={(e) => set('passwordConfirm', e.target.value)}
+            placeholder="Repita a senha"
+          />
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Perfil</label>
@@ -207,10 +238,13 @@ function UserFormModal({
               value={form.allowed_modules}
               onChange={(v) => set('allowed_modules', v)}
             />
+            {form.allowed_modules !== null && form.allowed_modules.length === 0 && (
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">Atenção: sem nenhum módulo selecionado, o usuário não poderá acessar nada.</p>
+            )}
           </div>
         )}
 
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">{error}</p>}
 
         <div className="flex gap-3 pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>
@@ -228,13 +262,20 @@ function UserFormModal({
 export default function Settings() {
   const currentUser = useAuthStore((s) => s.user)
   const qc = useQueryClient()
-  const [modalUser, setModalUser] = useState<User | null | 'new'>('new' as never)
+  const [modalUser, setModalUser] = useState<User | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
 
   const { data: users = [], isPending } = useQuery({
     queryKey: ['users'],
     queryFn: listUsers,
   })
+
+  const filteredUsers = users.filter(
+    (u) =>
+      u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(userSearch.toLowerCase())
+  )
 
   const toggleActive = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
@@ -257,7 +298,9 @@ export default function Settings() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
           <div>
             <h2 className="font-semibold text-slate-900 dark:text-slate-100">Usuários do sistema</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{users.length} usuário{users.length !== 1 ? 's' : ''} cadastrado{users.length !== 1 ? 's' : ''}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {users.length} usuário{users.length !== 1 ? 's' : ''} cadastrado{users.length !== 1 ? 's' : ''}
+            </p>
           </div>
           <Button onClick={openCreate} size="sm">
             <PlusIcon className="w-4 h-4 mr-1.5" />
@@ -265,13 +308,32 @@ export default function Settings() {
           </Button>
         </div>
 
+        {users.length > 3 && (
+          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <input
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Buscar usuário por nome ou e-mail..."
+                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              />
+            </div>
+          </div>
+        )}
+
         {isPending ? (
           <div className="flex items-center justify-center h-32">
             <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {users.map((u) => {
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
+                Nenhum usuário encontrado
+              </div>
+            )}
+            {filteredUsers.map((u) => {
               const isMe = u.id === currentUser?.id
               return (
                 <div key={u.id} className={`px-5 py-4 flex items-start justify-between gap-4 ${!u.is_active ? 'opacity-50' : ''}`}>
@@ -285,11 +347,11 @@ export default function Settings() {
                       </Badge>
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{u.email}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
+                    <div className="flex flex-wrap gap-1 mt-1.5">
                       {u.role === 'admin' || u.allowed_modules === null ? (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">Todos os módulos</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Acesso total</span>
                       ) : u.allowed_modules.length === 0 ? (
-                        <span className="text-xs text-red-400 dark:text-red-500">Sem acesso a módulos</span>
+                        <span className="text-xs text-red-500 dark:text-red-400 font-medium">Sem acesso a módulos</span>
                       ) : (
                         u.allowed_modules.map((m) => (
                           <span key={m} className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
@@ -315,8 +377,8 @@ export default function Settings() {
                         onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
                         className={`p-1.5 rounded-lg transition-colors ${
                           u.is_active
-                            ? 'hover:bg-red-50 dark:hover:bg-red-900/30 text-red-300 dark:text-red-900 hover:text-red-500 dark:hover:text-red-400'
-                            : 'hover:bg-green-50 dark:hover:bg-green-900/30 text-green-300 dark:text-green-900 hover:text-green-600 dark:hover:text-green-400'
+                            ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
+                            : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
                         }`}
                         title={u.is_active ? 'Desativar' : 'Ativar'}
                       >
@@ -332,10 +394,7 @@ export default function Settings() {
       </div>
 
       {showModal && (
-        <UserFormModal
-          user={modalUser as User | null}
-          onClose={closeModal}
-        />
+        <UserFormModal user={modalUser} onClose={closeModal} />
       )}
     </div>
   )

@@ -31,6 +31,8 @@ export interface Customer {
   id: string
   name: string
   phone: string | null
+  document?: string | null
+  address?: string | null
   customer_type: CustomerType
   credit_limit: number
   balance_due: number

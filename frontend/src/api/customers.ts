@@ -4,6 +4,8 @@ import type { Customer } from '@/types'
 export interface CustomerCreate {
   name: string
   phone?: string
+  document?: string
+  address?: string
   customer_type: string
   credit_limit?: number
   notes?: string
