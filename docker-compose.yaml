@@ -39,10 +39,9 @@ services:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    network_mode: "service:frontend"
     depends_on:
       - frontend
-    networks:
-      - coolify
 
 networks:
   default:
