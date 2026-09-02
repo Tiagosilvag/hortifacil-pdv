@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,13 +27,23 @@ async def create_order(
 async def list_orders(
     customer_id: uuid.UUID | None = None,
     status: OrderStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     limit: int = 50,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    df = datetime(date_from.year, date_from.month, date_from.day, tzinfo=timezone.utc) if date_from else None
+    dt = datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59, tzinfo=timezone.utc) if date_to else None
     return await order_service.list_orders(
-        db, customer_id=customer_id, status=status, limit=limit, offset=offset
+        db,
+        customer_id=customer_id,
+        status=status,
+        date_from=df,
+        date_to=dt,
+        limit=limit,
+        offset=offset,
     )
 
 

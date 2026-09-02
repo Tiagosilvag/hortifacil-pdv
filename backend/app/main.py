@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, customers, dashboard, orders, products, receivables, users
+from app.api.v1 import auth, customers, dashboard, orders, products, receivables, reports, users
 from app.core.config import settings
 
 
@@ -34,6 +34,7 @@ app.include_router(orders.router, prefix="/api/v1")
 app.include_router(receivables.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 
 @app.get("/health")

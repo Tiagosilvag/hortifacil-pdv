@@ -17,6 +17,8 @@ export interface OrderCreate {
 export interface OrderListParams {
   customer_id?: string
   status?: string
+  date_from?: string
+  date_to?: string
   limit?: number
   offset?: number
 }

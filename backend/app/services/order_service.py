@@ -115,6 +115,8 @@ async def list_orders(
     *,
     customer_id: uuid.UUID | None = None,
     status: OrderStatus | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Order]:
@@ -123,6 +125,10 @@ async def list_orders(
         q = q.where(Order.customer_id == customer_id)
     if status:
         q = q.where(Order.status == status)
+    if date_from:
+        q = q.where(Order.created_at >= date_from)
+    if date_to:
+        q = q.where(Order.created_at <= date_to)
     q = q.order_by(Order.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(q)
     return list(result.scalars().all())

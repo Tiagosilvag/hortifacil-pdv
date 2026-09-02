@@ -4,11 +4,13 @@ import Layout from '@/components/layout/Layout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import CustomerList from '@/pages/customers/CustomerList'
+import CustomerDetail from '@/pages/customers/CustomerDetail'
 import ProductList from '@/pages/products/ProductList'
 import NewOrder from '@/pages/orders/NewOrder'
 import OrderList from '@/pages/orders/OrderList'
 import ReceivableList from '@/pages/receivables/ReceivableList'
 import Settings from '@/pages/settings/Settings'
+import SalesReport from '@/pages/reports/SalesReport'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token)
@@ -46,6 +48,14 @@ export default function App() {
           }
         />
         <Route
+          path="/customers/:id"
+          element={
+            <ProtectedRoute>
+              <CustomerDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/products"
           element={
             <ProtectedRoute>
@@ -74,6 +84,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ReceivableList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <SalesReport />
             </ProtectedRoute>
           }
         />

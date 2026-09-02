@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, MagnifyingGlassIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, MagnifyingGlassIcon, PencilSquareIcon, EyeIcon } from '@heroicons/react/24/outline'
 import { listCustomers, updateCustomer } from '@/api/customers'
 import { formatCurrency, formatCustomerType } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +11,7 @@ import type { Customer } from '@/types'
 
 export default function CustomerList() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
@@ -96,6 +98,13 @@ export default function CustomerList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => navigate(`/customers/${c.id}`)}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                          title="Ver histórico"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => openEdit(c)}
                           className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"

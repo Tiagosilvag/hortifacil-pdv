@@ -7,6 +7,7 @@ import {
   ArchiveBoxIcon,
   BanknotesIcon,
   Cog6ToothIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/stores/auth'
 import type { ModuleKey } from '@/types'
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { to: '/receivables', icon: BanknotesIcon, label: 'Fiado', exact: true, module: 'receivables' },
   { to: '/customers', icon: UsersIcon, label: 'Clientes', exact: true, module: 'customers' },
   { to: '/products', icon: ArchiveBoxIcon, label: 'Produtos', exact: true, module: 'products' },
+  { to: '/reports', icon: ChartBarIcon, label: 'Relatórios', exact: true, module: 'reports' },
 ]
 
 export default function Sidebar() {
