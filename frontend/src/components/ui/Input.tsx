@@ -12,7 +12,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={inputId} className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {label}
           </label>
         )}
@@ -22,14 +22,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           className={[
             'w-full px-3 py-2 text-sm rounded-lg border transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
-            'placeholder:text-slate-400',
-            error ? 'border-red-400 bg-red-50' : 'border-slate-300 bg-white',
+            'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+            'dark:text-slate-100',
+            error
+              ? 'border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-700'
+              : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-700',
             className,
           ].join(' ')}
           {...props}
         />
-        {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {hint && !error && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       </div>
     )
   }
@@ -47,7 +50,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={selectId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={selectId} className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {label}
           </label>
         )}
@@ -55,16 +58,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={selectId}
           className={[
-            'w-full px-3 py-2 text-sm rounded-lg border transition-colors bg-white',
+            'w-full px-3 py-2 text-sm rounded-lg border transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent',
-            error ? 'border-red-400 bg-red-50' : 'border-slate-300',
+            'text-slate-900 dark:text-slate-100',
+            error
+              ? 'border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-700'
+              : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-700',
             className,
           ].join(' ')}
           {...props}
         >
           {children}
         </select>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       </div>
     )
   }

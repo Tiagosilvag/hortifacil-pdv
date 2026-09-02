@@ -45,8 +45,8 @@ export default function Login() {
           <p className="text-green-300 text-sm mt-1">Sistema de Ponto de Venda</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">Entrar</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-2xl">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6">Entrar</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Input
@@ -65,8 +65,8 @@ export default function Login() {
             />
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg px-4 py-3">
+                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
               </div>
             )}
 

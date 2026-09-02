@@ -31,8 +31,8 @@ export default function ProductList() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Produtos</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{products.length} cadastrado{products.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Produtos</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{products.length} cadastrado{products.length !== 1 ? 's' : ''}</p>
         </div>
         <Button onClick={openNew}>
           <PlusIcon className="w-4 h-4" />
@@ -41,48 +41,48 @@ export default function ProductList() {
       </div>
 
       <div className="relative mb-4">
-        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nome, código de barras ou categoria..."
-          className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
         />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         {isPending ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">
             <p>Nenhum produto encontrado</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Produto</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoria</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Unidade</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Preço</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cód. Barras</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Produto</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categoria</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidade</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Preço</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cód. Barras</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {products.map((p) => (
-                  <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.category ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-600">{formatUnit(p.unit_type)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700">
+                  <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{p.name}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.category ?? '—'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatUnit(p.unit_type)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700 dark:text-green-400">
                       {formatCurrency(p.price)}
                     </td>
-                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{p.barcode ?? '—'}</td>
+                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{p.barcode ?? '—'}</td>
                     <td className="px-4 py-3">
                       <Badge variant={p.is_active ? 'green' : 'slate'}>
                         {p.is_active ? 'Ativo' : 'Inativo'}
@@ -92,14 +92,14 @@ export default function ProductList() {
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => openEdit(p)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                           title="Editar"
                         >
                           <PencilSquareIcon className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => toggleActive.mutate(p)}
-                          className="text-xs px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                          className="text-xs px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                         >
                           {p.is_active ? 'Desativar' : 'Ativar'}
                         </button>

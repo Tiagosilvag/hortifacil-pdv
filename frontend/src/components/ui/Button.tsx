@@ -11,9 +11,9 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 border border-transparent',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-400',
+  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-400 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600',
   danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 border border-transparent',
-  ghost: 'text-slate-600 hover:bg-slate-100 focus:ring-slate-400 border border-transparent',
+  ghost: 'text-slate-600 hover:bg-slate-100 focus:ring-slate-400 border border-transparent dark:text-slate-400 dark:hover:bg-slate-700',
 }
 
 const sizeClasses: Record<Size, string> = {

@@ -25,27 +25,27 @@ function OrderRow({ order, onCancel }: { order: Order; onCancel: (o: Order) => v
 
   return (
     <>
-      <tr className="hover:bg-slate-50 transition-colors">
-        <td className="px-4 py-3 tabular-nums font-mono text-slate-600">#{order.order_number}</td>
-        <td className="px-4 py-3 text-slate-900">{order.customer?.name ?? <span className="text-slate-400">—</span>}</td>
+      <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+        <td className="px-4 py-3 tabular-nums font-mono text-slate-600 dark:text-slate-400">#{order.order_number}</td>
+        <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{order.customer?.name ?? <span className="text-slate-400 dark:text-slate-500">—</span>}</td>
         <td className="px-4 py-3">
           <Badge variant={paymentVariant(order.payment_type)}>
             {formatPayment(order.payment_type)}
           </Badge>
         </td>
-        <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
+        <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-slate-100">
           {formatCurrency(order.total)}
         </td>
         <td className="px-4 py-3">
           <Badge variant={statusVariant(order.status)}>{formatStatus(order.status)}</Badge>
         </td>
-        <td className="px-4 py-3 text-slate-500 text-sm">{order.created_by_name}</td>
-        <td className="px-4 py-3 text-slate-400 text-sm">{formatDate(order.created_at)}</td>
+        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm">{order.created_by_name}</td>
+        <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-sm">{formatDate(order.created_at)}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-1 justify-end">
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               title="Ver itens"
             >
               {expanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
@@ -53,7 +53,7 @@ function OrderRow({ order, onCancel }: { order: Order; onCancel: (o: Order) => v
             {order.status !== 'cancelled' && (
               <button
                 onClick={() => onCancel(order)}
-                className="text-xs px-2 py-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                className="text-xs px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
               >
                 Cancelar
               </button>
@@ -63,19 +63,19 @@ function OrderRow({ order, onCancel }: { order: Order; onCancel: (o: Order) => v
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-slate-50 px-4 pb-3 pt-1">
+          <td colSpan={8} className="bg-slate-50 dark:bg-slate-700/50 px-4 pb-3 pt-1">
             <div className="flex flex-wrap gap-2">
               {order.items.map((item) => (
-                <div key={item.id} className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-                  <span className="font-medium text-slate-900">{item.product_name}</span>
-                  <span className="text-slate-500 ml-2">
+                <div key={item.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{item.product_name}</span>
+                  <span className="text-slate-500 dark:text-slate-400 ml-2">
                     {item.qty} {item.unit_type} × {formatCurrency(item.unit_price)} = {formatCurrency(item.subtotal)}
                   </span>
                 </div>
               ))}
             </div>
             {order.notes && (
-              <p className="text-xs text-slate-500 mt-2">📝 {order.notes}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{order.notes}</p>
             )}
           </td>
         </tr>
@@ -109,13 +109,13 @@ export default function OrderList() {
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Pedidos</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{orders.length} pedido{orders.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pedidos</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{orders.length} pedido{orders.length !== 1 ? 's' : ''}</p>
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
         >
           <option value="">Todos os status</option>
           <option value="pending">Pendente</option>
@@ -124,31 +124,31 @@ export default function OrderList() {
         </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         {isPending ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">
             <p>Nenhum pedido encontrado</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cliente</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Pagamento</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Operador</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Data</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cliente</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pagamento</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Operador</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Data</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {orders.map((order) => (
                   <OrderRow key={order.id} order={order} onCancel={setCancelTarget} />
                 ))}
@@ -158,15 +158,14 @@ export default function OrderList() {
         )}
       </div>
 
-      {/* Cancel confirmation */}
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/40" onClick={() => setCancelTarget(null)} />
-          <div className="relative bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
-            <h3 className="font-semibold text-slate-900 mb-2">
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-sm w-full">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
               Cancelar pedido #{cancelTarget.order_number}?
             </h3>
-            <p className="text-sm text-slate-500 mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Esta ação irá cancelar o pedido
               {cancelTarget.payment_type === 'installment' && ' e reverter o saldo do fiado do cliente'}.
             </p>
@@ -175,7 +174,7 @@ export default function OrderList() {
               onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Motivo do cancelamento (opcional)..."
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 resize-none"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 resize-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setCancelTarget(null)}>
