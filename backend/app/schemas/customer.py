@@ -59,6 +59,16 @@ class CustomerOut(BaseModel):
     created_at: datetime
 
 
+class CustomerMinimal(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    name: str
+    is_blocked: bool
+    balance_due: Decimal
+    credit_limit: Decimal
+
+
 class CustomerListOut(BaseModel):
     model_config = {"from_attributes": True}
 

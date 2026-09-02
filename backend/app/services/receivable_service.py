@@ -5,11 +5,20 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.customer import Customer
+from app.models.order import Order
 from app.models.receivable import Receivable, ReceivableStatus
 from app.models.user import User
 from app.services import customer_service
+
+
+def _receivable_query():
+    return select(Receivable).options(
+        selectinload(Receivable.customer),
+        selectinload(Receivable.order),
+    )
 
 
 async def list_receivables(
@@ -19,7 +28,7 @@ async def list_receivables(
     status: ReceivableStatus | None = None,
     open_only: bool = False,
 ) -> list[Receivable]:
-    q = select(Receivable)
+    q = _receivable_query()
     if customer_id:
         q = q.where(Receivable.customer_id == customer_id)
     if status:
@@ -39,7 +48,7 @@ async def register_payment(
     notes: str | None = None,
 ) -> Receivable:
     result = await db.execute(
-        select(Receivable).where(Receivable.id == receivable_id)
+        _receivable_query().where(Receivable.id == receivable_id)
     )
     receivable = result.scalar_one_or_none()
     if not receivable:
@@ -75,5 +84,8 @@ async def register_payment(
         customer_service._refresh_block_status(customer)
 
     await db.commit()
-    await db.refresh(receivable)
-    return receivable
+
+    result2 = await db.execute(
+        _receivable_query().where(Receivable.id == receivable_id)
+    )
+    return result2.scalar_one()

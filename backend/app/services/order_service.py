@@ -95,7 +95,7 @@ async def create_order(
 
     result = await db.execute(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.customer))
         .where(Order.id == order.id)
     )
     return result.scalar_one()
@@ -104,7 +104,7 @@ async def create_order(
 async def get_order(db: AsyncSession, order_id: uuid.UUID) -> Order | None:
     result = await db.execute(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.customer))
         .where(Order.id == order_id)
     )
     return result.scalar_one_or_none()
@@ -118,7 +118,7 @@ async def list_orders(
     limit: int = 50,
     offset: int = 0,
 ) -> list[Order]:
-    q = select(Order).options(selectinload(Order.items))
+    q = select(Order).options(selectinload(Order.items), selectinload(Order.customer))
     if customer_id:
         q = q.where(Order.customer_id == customer_id)
     if status:

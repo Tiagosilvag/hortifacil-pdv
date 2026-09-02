@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import BaseModel, field_validator, model_validator
 
 from app.models.order import OrderStatus, PaymentType
+from app.schemas.customer import CustomerMinimal
 
 
 class OrderItemCreate(BaseModel):
@@ -53,6 +54,7 @@ class OrderOut(BaseModel):
     id: uuid.UUID
     order_number: int
     customer_id: uuid.UUID | None
+    customer: CustomerMinimal | None = None
     total: Decimal
     discount: Decimal
     payment_type: PaymentType
@@ -69,11 +71,15 @@ class OrderListOut(BaseModel):
     id: uuid.UUID
     order_number: int
     customer_id: uuid.UUID | None
+    customer: CustomerMinimal | None = None
     total: Decimal
+    discount: Decimal
     payment_type: PaymentType
     status: OrderStatus
+    notes: str | None
     created_at: datetime
     created_by_name: str
+    items: list[OrderItemOut]
 
 
 class OrderCancelRequest(BaseModel):
