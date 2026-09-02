@@ -11,6 +11,12 @@
         ],
         "createdAt": "2026-09-02T18:15:40.446Z",
         "reason": "text-slate-400 is on white background at rest; hover:bg-red-50/green-50 are hover-only and paired with hover:text-red-500/green-600 — no gray-on-color at any state"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-02T18:17:16.728Z",
+        "reason": "PDV is a utilitarian business tool already in production with Inter; user has not requested a font change"
       }
     ]
   }
