@@ -40,15 +40,15 @@ export default function Sidebar() {
   const visible = navItems.filter((item) => !item.module || canAccess(item.module))
 
   return (
-    <aside className="w-56 shrink-0 bg-green-900 flex flex-col h-full">
-      <div className="px-5 py-5 border-b border-green-800">
+    <aside className="w-56 shrink-0 bg-green-900 dark:bg-[#061710] flex flex-col h-full">
+      <div className="px-5 py-5 border-b border-green-800 dark:border-[#0c2718]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-green-400 rounded-lg flex items-center justify-center">
-            <span className="text-green-900 font-bold text-sm">H</span>
+          <div className="w-8 h-8 bg-green-400 dark:bg-green-800 rounded-lg flex items-center justify-center">
+            <span className="text-green-900 dark:text-green-200 font-bold text-sm">H</span>
           </div>
           <div>
             <p className="text-green-50 font-semibold text-sm leading-tight">HortiFácil</p>
-            <p className="text-green-400 text-xs">PDV</p>
+            <p className="text-green-400 dark:text-green-600 text-xs">PDV</p>
           </div>
         </div>
       </div>
@@ -63,9 +63,9 @@ export default function Sidebar() {
               [
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-green-700 text-white'
-                  : 'text-green-200 hover:bg-green-800 hover:text-white',
-                highlight && !isActive ? 'mt-2 border border-green-600 text-green-100' : '',
+                  ? 'bg-green-700 dark:bg-[#0c2718] text-white'
+                  : 'text-green-200 dark:text-green-500 hover:bg-green-800 dark:hover:bg-[#0c2718] hover:text-white dark:hover:text-green-200',
+                highlight && !isActive ? 'mt-2 border border-green-600 dark:border-green-900 text-green-100 dark:text-green-500' : '',
               ].join(' ')
             }
           >
@@ -82,7 +82,7 @@ export default function Sidebar() {
             className={({ isActive }) =>
               [
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-green-700 text-white' : 'text-green-300 hover:bg-green-800 hover:text-white',
+                isActive ? 'bg-green-700 dark:bg-[#0c2718] text-white' : 'text-green-300 dark:text-green-600 hover:bg-green-800 dark:hover:bg-[#0c2718] hover:text-white dark:hover:text-green-200',
               ].join(' ')
             }
           >
@@ -91,7 +91,7 @@ export default function Sidebar() {
           </NavLink>
         )}
         <div className="px-3 py-2">
-          <p className="text-green-500 text-xs text-center">v1.0 — Fase 1</p>
+          <p className="text-green-500 dark:text-green-800 text-xs text-center">v1.0 — Fase 1</p>
         </div>
       </div>
     </aside>
