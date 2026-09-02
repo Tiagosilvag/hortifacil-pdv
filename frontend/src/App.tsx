@@ -8,10 +8,19 @@ import ProductList from '@/pages/products/ProductList'
 import NewOrder from '@/pages/orders/NewOrder'
 import OrderList from '@/pages/orders/OrderList'
 import ReceivableList from '@/pages/receivables/ReceivableList'
+import Settings from '@/pages/settings/Settings'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token)
   if (!token) return <Navigate to="/login" replace />
+  return <Layout>{children}</Layout>
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
+  if (!token) return <Navigate to="/login" replace />
+  if (user?.role !== 'admin') return <Navigate to="/" replace />
   return <Layout>{children}</Layout>
 }
 
@@ -66,6 +75,14 @@ export default function App() {
             <ProtectedRoute>
               <ReceivableList />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <AdminRoute>
+              <Settings />
+            </AdminRoute>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

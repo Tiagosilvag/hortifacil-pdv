@@ -1,11 +1,25 @@
 export type UserRole = 'admin' | 'operator'
 
+export type ModuleKey = 'dashboard' | 'new_order' | 'orders' | 'receivables' | 'customers' | 'products'
+
+export const ALL_MODULES: ModuleKey[] = ['dashboard', 'new_order', 'orders', 'receivables', 'customers', 'products']
+
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  dashboard: 'Dashboard',
+  new_order: 'Novo Pedido',
+  orders: 'Pedidos',
+  receivables: 'Fiado',
+  customers: 'Clientes',
+  products: 'Produtos',
+}
+
 export interface User {
   id: string
   name: string
   email: string
   role: UserRole
   is_active: boolean
+  allowed_modules: ModuleKey[] | null
   created_at: string
   last_login: string | null
 }

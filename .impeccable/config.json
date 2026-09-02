@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "text-slate-400",
+        "files": [
+          "frontend/src/pages/settings/Settings.tsx"
+        ],
+        "createdAt": "2026-09-02T18:15:40.446Z",
+        "reason": "text-slate-400 is on white background at rest; hover:bg-red-50/green-50 are hover-only and paired with hover:text-red-500/green-600 — no gray-on-color at any state"
+      }
+    ]
+  }
+}
