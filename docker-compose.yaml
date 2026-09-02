@@ -42,7 +42,7 @@ services:
     depends_on:
       - frontend
     networks:
-      - default
+      - coolify
 
 networks:
   default:
