@@ -4,6 +4,7 @@ import type { User } from '@/types'
 export interface LoginResponse {
   access_token: string
   token_type: string
+  user: import('@/types').User
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {

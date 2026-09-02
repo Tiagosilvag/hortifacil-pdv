@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '@/stores/auth'
-import { login, getMe } from '@/api/auth'
+import { login } from '@/api/auth'
 import { getApiError } from '@/api/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -24,8 +24,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { access_token } = await login(data.email, data.password)
-      const user = await getMe()
+      const { access_token, user } = await login(data.email, data.password)
       setAuth(access_token, user)
       navigate('/')
     } catch (err) {
