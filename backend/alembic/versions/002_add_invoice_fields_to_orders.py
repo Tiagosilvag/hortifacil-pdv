@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '002_invoice'
-down_revision = '001_add_allowed_modules_to_users'
+down_revision = '001'
 branch_labels = None
 depends_on = None
 
