@@ -16,6 +16,7 @@ app = FastAPI(
     title="HortiFácil PDV",
     version="1.0.0",
     description="Sistema de gestão e ponto de venda",
+    redirect_slashes=False,
     lifespan=lifespan,
 )
 
