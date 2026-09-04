@@ -76,7 +76,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
           error={errors.name?.message}
           {...register('name', { required: 'Nome obrigatório' })}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             label="Unidade *"
             {...register('unit_type')}

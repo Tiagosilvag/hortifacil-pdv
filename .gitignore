@@ -24,6 +24,7 @@ node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/dev.cmd
+frontend/*.tsbuildinfo
 
 # IDE
 .vscode/

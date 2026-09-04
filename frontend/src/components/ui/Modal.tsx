@@ -34,7 +34,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
         aria-hidden="true"
       />
       <div className={`relative ${maxWidth} w-full bg-white dark:bg-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
           <button
             onClick={onClose}
@@ -44,7 +44,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-5 overflow-y-auto">{children}</div>
+        <div className="px-4 sm:px-6 py-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   )

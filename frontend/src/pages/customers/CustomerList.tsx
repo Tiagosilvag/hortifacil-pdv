@@ -61,20 +61,20 @@ export default function CustomerList() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Clientes</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {customers.length} de {allCustomers.length} cliente{allCustomers.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={openNew}>
+        <Button onClick={openNew} className="w-full sm:w-auto">
           <PlusIcon className="w-4 h-4" />
           Novo Cliente
         </Button>
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
           <input
@@ -87,7 +87,7 @@ export default function CustomerList() {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as CustomerType | '')}
-          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 w-full sm:w-auto"
         >
           <option value="">Todos os tipos</option>
           <option value="counter">Balcão</option>
@@ -99,7 +99,7 @@ export default function CustomerList() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 w-full sm:w-auto"
         >
           <option value="">Todos os status</option>
           <option value="active">Ativos</option>

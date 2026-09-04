@@ -30,7 +30,7 @@ export default function OrderList() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pedidos</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{orders.length} pedido{orders.length !== 1 ? 's' : ''}</p>
@@ -38,7 +38,7 @@ export default function OrderList() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 w-full sm:w-auto"
         >
           <option value="">Todos os status</option>
           <option value="pending">Pendente</option>
