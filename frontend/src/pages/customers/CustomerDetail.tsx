@@ -8,6 +8,8 @@ import {
   CurrencyDollarIcon,
   ShoppingBagIcon,
   BanknotesIcon,
+  MapPinIcon,
+  IdentificationIcon,
 } from '@heroicons/react/24/outline'
 import { getCustomer } from '@/api/customers'
 import { listOrders, cancelOrder } from '@/api/orders'
@@ -150,8 +152,20 @@ export default function CustomerDetail() {
               </div>
               {customer.phone && (
                 <div className="flex items-center gap-1.5 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  <PhoneIcon className="w-3.5 h-3.5" />
+                  <PhoneIcon className="w-3.5 h-3.5 shrink-0" />
                   {customer.phone}
+                </div>
+              )}
+              {customer.document && (
+                <div className="flex items-center gap-1.5 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <IdentificationIcon className="w-3.5 h-3.5 shrink-0" />
+                  {customer.document}
+                </div>
+              )}
+              {customer.address && (
+                <div className="flex items-start gap-1.5 mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <MapPinIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  {customer.address}
                 </div>
               )}
               {customer.notes && (
