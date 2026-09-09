@@ -7,7 +7,7 @@ import { getApiError } from '@/api/client'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore } from '@/stores/auth'
 import type { Product } from '@/types'
 
 interface FormData {
