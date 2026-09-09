@@ -7,6 +7,7 @@ export interface UserCreate {
   password: string
   role: 'admin' | 'operator'
   allowed_modules: ModuleKey[] | null
+  can_manage_products?: boolean
 }
 
 export interface UserUpdate {
@@ -14,6 +15,7 @@ export interface UserUpdate {
   role?: 'admin' | 'operator'
   is_active?: boolean
   allowed_modules?: ModuleKey[] | null
+  can_manage_products?: boolean
   password?: string
 }
 

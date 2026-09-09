@@ -11,6 +11,7 @@ import {
 import { getDashboard } from '@/api/dashboard'
 import { formatCurrency } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
+import { useAuthStore } from '@/stores/auth'
 
 function StatCard({
   label,
@@ -40,13 +41,17 @@ function StatCard({
 }
 
 export default function Dashboard() {
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.role === 'admin'
+
   const { data, isPending } = useQuery({
     queryKey: ['dashboard'],
     queryFn: getDashboard,
     refetchInterval: 60_000,
+    enabled: isAdmin,
   })
 
-  if (isPending) {
+  if (isAdmin && isPending) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
@@ -69,49 +74,51 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          label="Vendas hoje"
-          value={formatCurrency(data?.today_sales_total ?? 0)}
-          sub={`${data?.today_sales_count ?? 0} pedido${(data?.today_sales_count ?? 0) !== 1 ? 's' : ''}`}
-          icon={ShoppingCartIcon}
-          color="bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-        />
-        <StatCard
-          label="Fiado em aberto"
-          value={formatCurrency(data?.open_receivables_total ?? 0)}
-          sub={`${data?.open_receivables_count ?? 0} conta${(data?.open_receivables_count ?? 0) !== 1 ? 's' : ''}`}
-          icon={BanknotesIcon}
-          color="bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-        />
-        <StatCard
-          label="Últimos 7 dias"
-          value={formatCurrency(data?.last_7_days_total ?? 0)}
-          icon={ArrowTrendingUpIcon}
-          color="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-        />
-        <StatCard
-          label="Clientes bloqueados"
-          value={String(data?.blocked_customers_count ?? 0)}
-          icon={UsersIcon}
-          color={
-            (data?.blocked_customers_count ?? 0) > 0
-              ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
-          }
-        />
-        <StatCard
-          label="Fiado vencido"
-          value={String(data?.overdue_receivables_count ?? 0)}
-          sub="contas em atraso"
-          icon={ExclamationTriangleIcon}
-          color={
-            (data?.overdue_receivables_count ?? 0) > 0
-              ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
-          }
-        />
-      </div>
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <StatCard
+            label="Vendas hoje"
+            value={formatCurrency(data?.today_sales_total ?? 0)}
+            sub={`${data?.today_sales_count ?? 0} pedido${(data?.today_sales_count ?? 0) !== 1 ? 's' : ''}`}
+            icon={ShoppingCartIcon}
+            color="bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+          />
+          <StatCard
+            label="Fiado em aberto"
+            value={formatCurrency(data?.open_receivables_total ?? 0)}
+            sub={`${data?.open_receivables_count ?? 0} conta${(data?.open_receivables_count ?? 0) !== 1 ? 's' : ''}`}
+            icon={BanknotesIcon}
+            color="bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+          />
+          <StatCard
+            label="Últimos 7 dias"
+            value={formatCurrency(data?.last_7_days_total ?? 0)}
+            icon={ArrowTrendingUpIcon}
+            color="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+          />
+          <StatCard
+            label="Clientes bloqueados"
+            value={String(data?.blocked_customers_count ?? 0)}
+            icon={UsersIcon}
+            color={
+              (data?.blocked_customers_count ?? 0) > 0
+                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+            }
+          />
+          <StatCard
+            label="Fiado vencido"
+            value={String(data?.overdue_receivables_count ?? 0)}
+            sub="contas em atraso"
+            icon={ExclamationTriangleIcon}
+            color={
+              (data?.overdue_receivables_count ?? 0) > 0
+                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+            }
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link

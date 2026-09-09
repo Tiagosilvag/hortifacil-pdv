@@ -12,6 +12,7 @@ class UserCreate(BaseModel):
     password: str
     role: UserRole = UserRole.operator
     allowed_modules: list[str] | None = None
+    can_manage_products: bool = False
 
     @field_validator("allowed_modules")
     @classmethod
@@ -28,6 +29,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     allowed_modules: list[str] | None = None
+    can_manage_products: bool | None = None
     password: str | None = None
 
     @field_validator("allowed_modules")
@@ -49,6 +51,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     allowed_modules: list[str] | None
+    can_manage_products: bool
     created_at: datetime
     last_login: datetime | None
 

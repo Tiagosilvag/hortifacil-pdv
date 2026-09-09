@@ -30,6 +30,7 @@ interface UserFormData {
   passwordConfirm: string
   role: 'admin' | 'operator'
   allowed_modules: ModuleKey[] | null
+  can_manage_products: boolean
 }
 
 const emptyForm: UserFormData = {
@@ -39,6 +40,7 @@ const emptyForm: UserFormData = {
   passwordConfirm: '',
   role: 'operator',
   allowed_modules: null,
+  can_manage_products: false,
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -99,7 +101,7 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
 
   const [form, setForm] = useState<UserFormData>(
     user
-      ? { name: user.name, email: user.email, password: '', passwordConfirm: '', role: user.role, allowed_modules: user.allowed_modules }
+      ? { name: user.name, email: user.email, password: '', passwordConfirm: '', role: user.role, allowed_modules: user.allowed_modules, can_manage_products: user.can_manage_products }
       : emptyForm
   )
   const [error, setError] = useState('')
@@ -111,6 +113,7 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
             name: data.name,
             role: data.role,
             allowed_modules: data.role === 'admin' ? null : data.allowed_modules,
+            can_manage_products: data.role === 'admin' ? false : data.can_manage_products,
             ...(data.password ? { password: data.password } : {}),
           })
       : (data: UserFormData) =>
@@ -120,6 +123,7 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
             password: data.password,
             role: data.role,
             allowed_modules: data.role === 'admin' ? null : data.allowed_modules,
+            can_manage_products: data.role === 'admin' ? false : data.can_manage_products,
           }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
@@ -237,16 +241,30 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
         </div>
 
         {form.role === 'operator' && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Módulos permitidos</label>
-            <ModuleCheckboxes
-              value={form.allowed_modules}
-              onChange={(v) => set('allowed_modules', v)}
-            />
-            {form.allowed_modules !== null && form.allowed_modules.length === 0 && (
-              <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">Atenção: sem nenhum módulo selecionado, o usuário não poderá acessar nada.</p>
-            )}
-          </div>
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Módulos permitidos</label>
+              <ModuleCheckboxes
+                value={form.allowed_modules}
+                onChange={(v) => set('allowed_modules', v)}
+              />
+              {form.allowed_modules !== null && form.allowed_modules.length === 0 && (
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">Atenção: sem nenhum módulo selecionado, o usuário não poderá acessar nada.</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Permissões especiais</label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.can_manage_products}
+                  onChange={(e) => set('can_manage_products', e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-slate-600 dark:text-slate-400">Criar e editar produtos</span>
+              </label>
+            </div>
+          </>
         )}
 
         {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">{error}</p>}

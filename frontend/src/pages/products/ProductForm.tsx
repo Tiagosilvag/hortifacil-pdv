@@ -31,7 +31,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
   const [apiError, setApiError] = useState('')
   const isEditing = product !== null
   const currentUser = useAuthStore((s) => s.user)
-  const isAdmin = currentUser?.role === 'admin'
+  const isAdmin = currentUser?.role === 'admin' || !!currentUser?.can_manage_products
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', 'active'],

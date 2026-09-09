@@ -22,6 +22,7 @@ export interface User {
   role: UserRole
   is_active: boolean
   allowed_modules: ModuleKey[] | null
+  can_manage_products: boolean
   created_at: string
   last_login: string | null
 }

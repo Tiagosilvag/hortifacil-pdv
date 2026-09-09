@@ -13,7 +13,7 @@ class UserRole(str, enum.Enum):
     operator = "operator"
 
 
-ALL_MODULES = ["dashboard", "new_order", "orders", "receivables", "customers", "products"]
+ALL_MODULES = ["dashboard", "new_order", "orders", "receivables", "customers", "products", "reports", "inventory"]
 
 
 class User(Base):
@@ -27,6 +27,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # null = todos os módulos; lista = apenas os módulos permitidos (ignorado para admin)
     allowed_modules: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, default=None)
+    can_manage_products: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
