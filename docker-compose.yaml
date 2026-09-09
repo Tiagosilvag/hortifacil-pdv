@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     expose:
       - "80"
+      - "443"
     networks:
       - default
       - coolify
