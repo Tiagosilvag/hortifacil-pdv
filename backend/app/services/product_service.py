@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -8,7 +8,9 @@ from app.schemas.product import ProductCreate, ProductUpdate
 
 
 async def create_product(db: AsyncSession, data: ProductCreate) -> Product:
-    product = Product(**data.model_dump())
+    result = await db.execute(select(func.coalesce(func.max(Product.code), 0)))
+    next_code = result.scalar() + 1
+    product = Product(**data.model_dump(), code=next_code)
     db.add(product)
     await db.commit()
     await db.refresh(product)

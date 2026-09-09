@@ -79,6 +79,7 @@ export default function ProductList() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cód.</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Produto</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categoria</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidade</th>
@@ -93,6 +94,7 @@ export default function ProductList() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {products.map((p) => (
                   <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-500 dark:text-slate-400">{String(p.code).padStart(3, '0')}</td>
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{p.name}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.category ?? '—'}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatUnit(p.unit_type)}</td>

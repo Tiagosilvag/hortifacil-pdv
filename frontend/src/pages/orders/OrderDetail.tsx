@@ -182,7 +182,10 @@ export default function OrderDetail() {
               {order.items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between px-5 py-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.product_name}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {item.product_code != null && <span className="mr-1.5 font-mono text-slate-400 dark:text-slate-500">{String(item.product_code).padStart(3, '0')}</span>}
+                      {item.product_name}
+                    </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {item.qty} {formatUnit(item.unit_type)} × {formatCurrency(item.unit_price)}
                       {item.barcode && <span className="ml-2 font-mono text-slate-400 dark:text-slate-500">{item.barcode}</span>}

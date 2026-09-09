@@ -250,6 +250,7 @@ export default function NewOrder() {
                       className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-600 text-left text-sm"
                     >
                       <div>
+                        <span className="mr-1.5 text-xs font-mono text-slate-400 dark:text-slate-500">{String(p.code).padStart(3, '0')}</span>
                         <span className="font-medium text-slate-900 dark:text-slate-100">{p.name}</span>
                         {p.category && <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{p.category}</span>}
                         {p.barcode && <span className="ml-2 text-xs font-mono text-slate-400 dark:text-slate-500">{p.barcode}</span>}
@@ -426,7 +427,10 @@ function CartItemList({
       {cart.map(({ product, qty }) => (
         <div key={product.id} className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{product.name}</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+              <span className="mr-1.5 font-mono text-slate-400 dark:text-slate-500">{String(product.code).padStart(3, '0')}</span>
+              {product.name}
+            </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {formatCurrency(product.price)}/{formatUnit(product.unit_type)}
               {product.barcode && <span className="ml-1.5 font-mono text-slate-400 dark:text-slate-500">{product.barcode}</span>}

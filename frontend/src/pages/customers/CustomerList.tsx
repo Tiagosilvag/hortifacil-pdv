@@ -132,7 +132,7 @@ export default function CustomerList() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {customers.map((c) => (
-                  <tr key={c.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!c.is_active ? 'opacity-50' : ''}`}>
+                  <tr key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!c.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatCustomerType(c.customer_type)}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{c.phone ?? '—'}</td>
@@ -157,21 +157,21 @@ export default function CustomerList() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
                         <button
-                          onClick={() => navigate(`/customers/${c.id}`)}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/customers/${c.id}`) }}
                           className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                           title="Ver histórico"
                         >
                           <EyeIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openEdit(c)}
+                          onClick={(e) => { e.stopPropagation(); openEdit(c) }}
                           className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                           title="Editar"
                         >
                           <PencilSquareIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleActive.mutate(c)}
+                          onClick={(e) => { e.stopPropagation(); toggleActive.mutate(c) }}
                           className={`p-1.5 rounded-lg transition-colors ${
                             c.is_active
                               ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'

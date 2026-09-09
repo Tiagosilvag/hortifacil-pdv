@@ -26,6 +26,7 @@ class OrderItemOut(BaseModel):
     id: uuid.UUID
     product_id: uuid.UUID
     product_name: str
+    product_code: int | None
     barcode: str | None
     unit_type: str
     qty: Decimal

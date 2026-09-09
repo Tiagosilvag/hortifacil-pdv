@@ -46,6 +46,7 @@ class ProductOut(BaseModel):
     model_config = {"from_attributes": True}
 
     id: uuid.UUID
+    code: int
     name: str
     barcode: str | None
     unit_type: UnitType

@@ -47,6 +47,7 @@ export type UnitType = 'unit' | 'kg' | 'gram' | 'liter' | 'box' | 'bunch'
 
 export interface Product {
   id: string
+  code: number
   name: string
   barcode: string | null
   unit_type: UnitType
@@ -76,6 +77,7 @@ export interface OrderItem {
   id: string
   product_id: string
   product_name: string
+  product_code: number | null
   barcode: string | null
   unit_type: string
   qty: number
