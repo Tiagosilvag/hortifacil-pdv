@@ -21,6 +21,18 @@ async def create_order(
 ) -> Order:
     customer: Customer | None = None
 
+    # Resolve effective payment_type and splits
+    splits: list[PaymentSplit] = data.payments or []
+    if splits:
+        effective_payment_type = PaymentType.mixed if len(splits) > 1 else PaymentType(splits[0].type)
+    else:
+        effective_payment_type = data.payment_type  # type: ignore[assignment]
+        splits = []
+
+    has_installment = any(s.type == "installment" for s in splits) or (
+        not splits and effective_payment_type == PaymentType.installment
+    )
+
     if data.customer_id:
         result = await db.execute(
             select(Customer).where(Customer.id == data.customer_id)
@@ -29,7 +41,7 @@ async def create_order(
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
-        if data.payment_type == PaymentType.installment:
+        if has_installment:
             if customer.is_blocked:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -57,25 +69,49 @@ async def create_order(
     if total < 0:
         total = Decimal("0.00")
 
+    # Calcular valor do fiado (portion installment)
+    if splits:
+        installment_amount = sum(
+            s.amount for s in splits if s.type == "installment"
+        ).quantize(Decimal("0.01"))
+    else:
+        installment_amount = total if effective_payment_type == PaymentType.installment else Decimal("0.00")
+
+    # Validar splits somam o total
+    if splits:
+        splits_total = sum(s.amount for s in splits).quantize(Decimal("0.01"))
+        if abs(splits_total - total) > Decimal("0.01"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Soma dos pagamentos (R$ {splits_total:.2f}) não bate com o total do pedido (R$ {total:.2f})",
+            )
+
     # Validar limite de crédito para fiado
-    if data.payment_type == PaymentType.installment and customer:
+    if has_installment and customer:
         if customer.credit_limit > 0:
             disponivel = customer.credit_limit - customer.balance_due
-            if total > disponivel:
+            if installment_amount > disponivel:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
-                        f"Valor do pedido (R$ {total:.2f}) excede o crédito disponível "
+                        f"Valor fiado (R$ {installment_amount:.2f}) excede o crédito disponível "
                         f"(R$ {disponivel:.2f}). "
                         f"Limite: R$ {customer.credit_limit:.2f} | Em aberto: R$ {customer.balance_due:.2f}"
                     ),
                 )
 
+    payment_splits_json = (
+        [{"type": s.type, "amount": float(s.amount)} for s in splits]
+        if len(splits) > 1
+        else None
+    )
+
     order = Order(
         customer_id=data.customer_id,
         total=total,
         discount=data.discount,
-        payment_type=data.payment_type,
+        payment_type=effective_payment_type,
+        payment_splits=payment_splits_json,
         notes=data.notes,
         created_by_id=current_user.id,
         created_by_name=current_user.name,
@@ -98,15 +134,15 @@ async def create_order(
         db.add(item)
         product.stock = (product.stock or Decimal("0")) - qty
 
-    if data.payment_type == PaymentType.installment and customer:
+    if has_installment and customer and installment_amount > 0:
         receivable = Receivable(
             customer_id=customer.id,
             order_id=order.id,
-            amount=total,
+            amount=installment_amount,
             status=ReceivableStatus.open,
         )
         db.add(receivable)
-        customer.balance_due = customer.balance_due + total
+        customer.balance_due = customer.balance_due + installment_amount
         customer_service._refresh_block_status(customer)
 
     await db.commit()
@@ -188,14 +224,23 @@ async def cancel_order(
         if product:
             product.stock = (product.stock or Decimal("0")) + item.qty
 
-    if order.payment_type == PaymentType.installment and order.customer_id:
+    # Calcular quanto era fiado neste pedido
+    cancel_installment = Decimal("0.00")
+    if order.payment_type == PaymentType.installment:
+        cancel_installment = order.total
+    elif order.payment_type == PaymentType.mixed and order.payment_splits:
+        cancel_installment = sum(
+            Decimal(str(s["amount"])) for s in order.payment_splits if s.get("type") == "installment"
+        ).quantize(Decimal("0.01"))
+
+    if cancel_installment > 0 and order.customer_id:
         result = await db.execute(
             select(Customer).where(Customer.id == order.customer_id)
         )
         customer = result.scalar_one_or_none()
         if customer:
             customer.balance_due = max(
-                Decimal("0.00"), customer.balance_due - order.total
+                Decimal("0.00"), customer.balance_due - cancel_installment
             )
             customer_service._refresh_block_status(customer)
 

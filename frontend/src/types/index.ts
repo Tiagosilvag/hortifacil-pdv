@@ -80,7 +80,12 @@ export interface StockLoss {
   created_at: string
 }
 
-export type PaymentType = 'cash' | 'pix' | 'credit_card' | 'debit_card' | 'installment'
+export type PaymentType = 'cash' | 'pix' | 'credit_card' | 'debit_card' | 'installment' | 'mixed'
+
+export interface PaymentSplit {
+  type: PaymentType
+  amount: number
+}
 export type OrderStatus = 'pending' | 'delivered' | 'cancelled'
 
 export interface OrderItem {
@@ -103,6 +108,7 @@ export interface Order {
   total: number
   discount: number
   payment_type: PaymentType
+  payment_splits: PaymentSplit[] | null
   status: OrderStatus
   notes: string | null
   invoice_number: string | null

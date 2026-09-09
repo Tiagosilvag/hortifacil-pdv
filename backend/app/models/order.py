@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    DateTime, Enum, ForeignKey, Integer, Numeric,
+    DateTime, Enum, ForeignKey, Integer, JSON, Numeric,
     Sequence, String, Text, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,6 +20,7 @@ class PaymentType(str, enum.Enum):
     credit_card = "credit_card"
     debit_card = "debit_card"
     installment = "installment"  # fiado/parcelado
+    mixed = "mixed"            # múltiplos métodos
 
 
 class OrderStatus(str, enum.Enum):
@@ -50,6 +51,7 @@ class Order(Base):
         Enum(OrderStatus), default=OrderStatus.pending, nullable=False
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_splits: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Nota Fiscal
     invoice_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     invoice_series: Mapped[str | None] = mapped_column(String(10), nullable=True)

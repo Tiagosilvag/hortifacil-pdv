@@ -8,6 +8,7 @@ import {
   MagnifyingGlassIcon,
   ShoppingCartIcon,
   ExclamationTriangleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { listCustomers } from '@/api/customers'
 import { listProducts } from '@/api/products'
@@ -23,6 +24,19 @@ interface CartItem {
   qty: number
 }
 
+interface Split {
+  type: string
+  amount: string
+}
+
+const PAYMENT_OPTIONS = [
+  { value: 'cash', label: 'Dinheiro' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'debit_card', label: 'Débito' },
+  { value: 'credit_card', label: 'Crédito' },
+  { value: 'installment', label: 'Fiado' },
+]
+
 export default function NewOrder() {
   const navigate = useNavigate()
 
@@ -36,7 +50,7 @@ export default function NewOrder() {
   const productRef = useRef<HTMLDivElement>(null)
 
   const [cart, setCart] = useState<CartItem[]>([])
-  const [paymentType, setPaymentType] = useState('cash')
+  const [splits, setSplits] = useState<Split[]>([])
   const [discount, setDiscount] = useState('')
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState('')
@@ -59,10 +73,20 @@ export default function NewOrder() {
   const discountValue = parseFloat(discount) || 0
   const total = Math.max(0, subtotal - discountValue)
 
-  const creditAvailable = selectedCustomer && selectedCustomer.credit_limit > 0
-    ? selectedCustomer.credit_limit - selectedCustomer.balance_due
-    : null
-  const exceedsCredit = paymentType === 'installment' && creditAvailable !== null && total > creditAvailable
+  const splitsTotal = splits.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+  const remaining = Math.max(0, total - splitsTotal)
+
+  const hasInstallment = splits.some((s) => s.type === 'installment')
+  const installmentAmount = splits
+    .filter((s) => s.type === 'installment')
+    .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+
+  const creditAvailable =
+    selectedCustomer && selectedCustomer.credit_limit > 0
+      ? selectedCustomer.credit_limit - Number(selectedCustomer.balance_due)
+      : null
+  const exceedsCredit =
+    hasInstallment && creditAvailable !== null && installmentAmount > creditAvailable
 
   const addToCart = (product: Product) => {
     setCart((prev) => {
@@ -94,10 +118,23 @@ export default function NewOrder() {
     setCart((prev) => prev.filter((i) => i.product.id !== productId))
   }
 
+  const addSplit = (type: string) => {
+    const rem = Math.max(0, total - splits.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0))
+    setSplits((prev) => [...prev, { type, amount: rem > 0 ? rem.toFixed(2) : '' }])
+  }
+
+  const updateSplitAmount = (idx: number, amount: string) => {
+    setSplits((prev) => prev.map((s, i) => i === idx ? { ...s, amount } : s))
+  }
+
+  const removeSplit = (idx: number) => {
+    setSplits((prev) => prev.filter((_, i) => i !== idx))
+  }
+
   const mutation = useMutation({
     mutationFn: createOrder,
     onSuccess: (order) => {
-      setLastOrder({ number: order.order_number, total: order.total })
+      setLastOrder({ number: order.order_number, total: Number(order.total) })
       setSuccess(true)
     },
     onError: (err) => setApiError(getApiError(err)),
@@ -105,18 +142,26 @@ export default function NewOrder() {
 
   const handleSubmit = () => {
     if (cart.length === 0) { setApiError('Adicione pelo menos um produto'); return }
-    if (paymentType === 'installment' && !selectedCustomer) {
+    if (splits.length === 0) { setApiError('Selecione pelo menos um método de pagamento'); return }
+    if (hasInstallment && !selectedCustomer) {
       setApiError('Selecione um cliente para venda fiado')
       return
     }
     if (exceedsCredit) {
-      setApiError(`Valor excede o crédito disponível (R$ ${creditAvailable!.toFixed(2).replace('.', ',')})`)
+      setApiError(`Valor fiado excede o crédito disponível (R$ ${creditAvailable!.toFixed(2).replace('.', ',')})`)
+      return
+    }
+    const diff = Math.abs(splitsTotal - total)
+    if (diff > 0.01) {
+      setApiError(`Soma dos pagamentos (${formatCurrency(splitsTotal)}) não bate com o total (${formatCurrency(total)})`)
       return
     }
     setApiError('')
+
+    const paymentsPayload = splits.map((s) => ({ type: s.type, amount: parseFloat(s.amount) }))
     mutation.mutate({
       customer_id: selectedCustomer?.id,
-      payment_type: paymentType,
+      payments: paymentsPayload,
       items: cart.map((i) => ({ product_id: i.product.id, qty: i.qty })),
       discount: discountValue || undefined,
       notes: notes || undefined,
@@ -127,7 +172,7 @@ export default function NewOrder() {
     setSelectedCustomer(null)
     setCustomerSearch('')
     setCart([])
-    setPaymentType('cash')
+    setSplits([])
     setDiscount('')
     setNotes('')
     setApiError('')
@@ -166,6 +211,7 @@ export default function NewOrder() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: customer + product search + cart */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           {/* Customer search */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
@@ -180,7 +226,7 @@ export default function NewOrder() {
                     {selectedCustomer.is_blocked && <Badge variant="red">Bloqueado</Badge>}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Fiado: {formatCurrency(selectedCustomer.balance_due)}
+                    Fiado: {formatCurrency(Number(selectedCustomer.balance_due))}
                     {selectedCustomer.credit_limit > 0 && ` / Limite: ${formatCurrency(selectedCustomer.credit_limit)}`}
                   </p>
                   {selectedCustomer.is_blocked && (
@@ -217,7 +263,7 @@ export default function NewOrder() {
                         <div className="flex items-center gap-2 shrink-0">
                           {c.is_blocked && <Badge variant="red">Bloqueado</Badge>}
                           {c.balance_due > 0 && (
-                            <span className="text-xs text-amber-600 dark:text-amber-400">{formatCurrency(c.balance_due)}</span>
+                            <span className="text-xs text-amber-600 dark:text-amber-400">{formatCurrency(Number(c.balance_due))}</span>
                           )}
                         </div>
                       </button>
@@ -267,7 +313,7 @@ export default function NewOrder() {
             </div>
           </div>
 
-          {/* Cart items — always visible in the left column */}
+          {/* Cart items */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 min-h-[200px]">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-16 text-slate-400 dark:text-slate-500">
@@ -285,9 +331,10 @@ export default function NewOrder() {
           </div>
         </div>
 
-        {/* Right: order summary */}
+        {/* Right: payment + totals */}
         <div className="flex flex-col gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-4">
+            {/* Summary line */}
             <div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Resumo do pedido</p>
               {cart.length === 0 ? (
@@ -299,40 +346,85 @@ export default function NewOrder() {
               )}
             </div>
 
-            {/* Payment type */}
+            {/* Payment methods */}
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Pagamento</p>
+
+              {/* Added splits */}
+              {splits.length > 0 && (
+                <div className="flex flex-col gap-2 mb-3">
+                  {splits.map((split, idx) => {
+                    const opt = PAYMENT_OPTIONS.find((o) => o.value === split.type)
+                    return (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-lg shrink-0 ${
+                          split.type === 'installment'
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                        }`}>
+                          {opt?.label ?? split.type}
+                        </span>
+                        <div className="relative flex-1">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={split.amount}
+                            onChange={(e) => updateSplitAmount(idx, e.target.value)}
+                            className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 tabular-nums"
+                          />
+                        </div>
+                        <button
+                          onClick={() => removeSplit(idx)}
+                          className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors shrink-0"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Remaining indicator */}
+              {splits.length > 0 && (
+                <div className={`flex items-center justify-between text-xs px-2 py-1.5 rounded-lg mb-3 ${
+                  Math.abs(remaining) < 0.01
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                }`}>
+                  <span>{Math.abs(remaining) < 0.01 ? 'Valor distribuído ✓' : 'Restante a distribuir'}</span>
+                  {Math.abs(remaining) >= 0.01 && <span className="font-semibold tabular-nums">{formatCurrency(remaining)}</span>}
+                </div>
+              )}
+
+              {/* Add payment buttons */}
               <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'cash', label: 'Dinheiro' },
-                  { value: 'pix', label: 'Pix' },
-                  { value: 'debit_card', label: 'Débito' },
-                  { value: 'credit_card', label: 'Crédito' },
-                  { value: 'installment', label: 'Fiado' },
-                ].map(({ value, label }) => (
+                {PAYMENT_OPTIONS.map(({ value, label }) => (
                   <button
                     key={value}
-                    onClick={() => setPaymentType(value)}
+                    onClick={() => addSplit(value)}
+                    disabled={value === 'installment' && !!selectedCustomer?.is_blocked}
                     className={[
                       'px-3 py-2 text-sm rounded-lg border font-medium transition-colors',
-                      paymentType === value
-                        ? value === 'installment'
-                          ? 'bg-amber-500 border-amber-500 text-white'
-                          : 'bg-green-600 border-green-600 text-white'
-                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600',
+                      value === 'installment'
+                        ? 'bg-white dark:bg-slate-700 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed'
+                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-700',
                     ].join(' ')}
                   >
-                    {label}
+                    + {label}
                   </button>
                 ))}
               </div>
-              {paymentType === 'installment' && !selectedCustomer && (
+
+              {hasInstallment && !selectedCustomer && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                   Selecione um cliente para vender fiado
                 </p>
               )}
-              {paymentType === 'installment' && selectedCustomer?.is_blocked && (
+              {hasInstallment && selectedCustomer?.is_blocked && (
                 <p className="text-xs text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                   Cliente bloqueado — não é possível vender fiado
@@ -342,10 +434,10 @@ export default function NewOrder() {
                 <div className="mt-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg px-3 py-2">
                   <p className="text-xs text-red-700 dark:text-red-400 font-medium flex items-center gap-1">
                     <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
-                    Limite insuficiente
+                    Limite insuficiente para fiado
                   </p>
                   <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                    Disponível: {formatCurrency(creditAvailable!)} · Em aberto: {formatCurrency(selectedCustomer!.balance_due)} · Limite: {formatCurrency(selectedCustomer!.credit_limit)}
+                    Disponível: {formatCurrency(creditAvailable!)} · Em aberto: {formatCurrency(Number(selectedCustomer!.balance_due))}
                   </p>
                 </div>
               )}
@@ -410,7 +502,12 @@ export default function NewOrder() {
               loading={mutation.isPending}
               size="lg"
               className="w-full"
-              disabled={cart.length === 0 || exceedsCredit || (paymentType === 'installment' && !!selectedCustomer?.is_blocked)}
+              disabled={
+                cart.length === 0 ||
+                splits.length === 0 ||
+                exceedsCredit ||
+                (hasInstallment && !!selectedCustomer?.is_blocked)
+              }
             >
               Confirmar Pedido
             </Button>

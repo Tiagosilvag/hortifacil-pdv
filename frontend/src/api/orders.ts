@@ -6,9 +6,15 @@ export interface OrderItemCreate {
   qty: number
 }
 
+export interface PaymentSplitCreate {
+  type: string
+  amount: number
+}
+
 export interface OrderCreate {
   customer_id?: string
-  payment_type: string
+  payment_type?: string
+  payments?: PaymentSplitCreate[]
   items: OrderItemCreate[]
   discount?: number
   notes?: string

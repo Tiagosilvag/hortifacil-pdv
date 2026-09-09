@@ -42,6 +42,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
   debit_card: 'Cartão de Débito',
   installment: 'Fiado',
+  mixed: 'Múltiplos',
 }
 
 export function formatPayment(type: string): string {
