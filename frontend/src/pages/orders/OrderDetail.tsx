@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, formatPayment, formatStatus, formatUnit } f
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getApiError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 import type { OrderStatus } from '@/types'
 
 function statusVariant(status: OrderStatus): 'green' | 'slate' | 'red' | 'amber' {
@@ -27,6 +28,7 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
 
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
@@ -135,15 +137,17 @@ export default function OrderDetail() {
 
         {order.status === 'pending' && (
           <div className="flex gap-2 shrink-0">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowCancelModal(true)}
-              className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30"
-            >
-              <XCircleIcon className="w-4 h-4 mr-1" />
-              Cancelar
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowCancelModal(true)}
+                className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30"
+              >
+                <XCircleIcon className="w-4 h-4 mr-1" />
+                Cancelar
+              </Button>
+            )}
             <Button
               size="sm"
               loading={deliverMutation.isPending}
@@ -155,7 +159,7 @@ export default function OrderDetail() {
           </div>
         )}
 
-        {order.status === 'delivered' && (
+        {order.status === 'delivered' && isAdmin && (
           <Button
             variant="secondary"
             size="sm"

@@ -11,7 +11,7 @@ from app.models.customer import Customer
 from app.models.order import Order, OrderItem, OrderStatus, PaymentType
 from app.models.product import Product
 from app.models.receivable import Receivable, ReceivableStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderInvoiceUpdate
 from app.services import customer_service
 
@@ -170,6 +170,8 @@ async def deliver_order(
 async def cancel_order(
     db: AsyncSession, order: Order, current_user: User, reason: str | None = None
 ) -> Order:
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem cancelar pedidos")
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="Pedido já foi cancelado")
 
