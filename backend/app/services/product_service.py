@@ -103,7 +103,7 @@ async def update_product(
     data_fields = {k: v for k, v in updates.items() if k != "is_active"}
 
     if data_fields:
-        can_edit = current_user.role == UserRole.admin or current_user.can_manage_products
+        can_edit = current_user.role == UserRole.admin or current_user.can_edit_products
         if not can_edit:
             raise HTTPException(status_code=403, detail="Sem permissão para alterar dados do produto")
         if data.name is not None:

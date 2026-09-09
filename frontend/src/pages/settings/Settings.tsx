@@ -30,7 +30,8 @@ interface UserFormData {
   passwordConfirm: string
   role: 'admin' | 'operator'
   allowed_modules: ModuleKey[] | null
-  can_manage_products: boolean
+  can_create_products: boolean
+  can_edit_products: boolean
 }
 
 const emptyForm: UserFormData = {
@@ -40,7 +41,8 @@ const emptyForm: UserFormData = {
   passwordConfirm: '',
   role: 'operator',
   allowed_modules: null,
-  can_manage_products: false,
+  can_create_products: false,
+  can_edit_products: false,
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -101,7 +103,7 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
 
   const [form, setForm] = useState<UserFormData>(
     user
-      ? { name: user.name, email: user.email, password: '', passwordConfirm: '', role: user.role, allowed_modules: user.allowed_modules, can_manage_products: user.can_manage_products }
+      ? { name: user.name, email: user.email, password: '', passwordConfirm: '', role: user.role, allowed_modules: user.allowed_modules, can_create_products: user.can_create_products, can_edit_products: user.can_edit_products }
       : emptyForm
   )
   const [error, setError] = useState('')
@@ -113,7 +115,8 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
             name: data.name,
             role: data.role,
             allowed_modules: data.role === 'admin' ? null : data.allowed_modules,
-            can_manage_products: data.role === 'admin' ? false : data.can_manage_products,
+            can_create_products: data.role === 'admin' ? false : data.can_create_products,
+            can_edit_products: data.role === 'admin' ? false : data.can_edit_products,
             ...(data.password ? { password: data.password } : {}),
           })
       : (data: UserFormData) =>
@@ -123,7 +126,8 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
             password: data.password,
             role: data.role,
             allowed_modules: data.role === 'admin' ? null : data.allowed_modules,
-            can_manage_products: data.role === 'admin' ? false : data.can_manage_products,
+            can_create_products: data.role === 'admin' ? false : data.can_create_products,
+            can_edit_products: data.role === 'admin' ? false : data.can_edit_products,
           }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
@@ -257,11 +261,20 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={form.can_manage_products}
-                  onChange={(e) => set('can_manage_products', e.target.checked)}
+                  checked={form.can_create_products}
+                  onChange={(e) => set('can_create_products', e.target.checked)}
                   className="rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-green-500"
                 />
-                <span className="text-sm text-slate-600 dark:text-slate-400">Criar e editar produtos</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">Criar produtos</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer mt-1">
+                <input
+                  type="checkbox"
+                  checked={form.can_edit_products}
+                  onChange={(e) => set('can_edit_products', e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-slate-600 dark:text-slate-400">Editar produtos</span>
               </label>
             </div>
           </>

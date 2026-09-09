@@ -48,7 +48,8 @@ export default function ProductList() {
   const qc = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin = currentUser?.role === 'admin'
-  const canManageProducts = isAdmin || !!currentUser?.can_manage_products
+  const canCreateProducts = isAdmin || !!currentUser?.can_create_products
+  const canEditProducts = isAdmin || !!currentUser?.can_edit_products
 
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -114,7 +115,7 @@ export default function ProductList() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Produtos</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{products.length} cadastrado{products.length !== 1 ? 's' : ''}</p>
         </div>
-        {canManageProducts && (
+        {canCreateProducts && (
           <Button onClick={openNew} className="w-full sm:w-auto">
             <PlusIcon className="w-4 h-4" />
             Novo Produto
@@ -169,10 +170,10 @@ export default function ProductList() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {paginated.map((p) => {
-                    const canEdit = canManageProducts
+                    const canEdit = canEditProducts
                     const canDelete = !p.has_orders
 
-                    const editTitle = !canManageProducts
+                    const editTitle = !canEditProducts
                       ? 'Sem permissão para editar produtos'
                       : 'Editar'
 

@@ -31,7 +31,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
   const [apiError, setApiError] = useState('')
   const isEditing = product !== null
   const currentUser = useAuthStore((s) => s.user)
-  const isAdmin = currentUser?.role === 'admin' || !!currentUser?.can_manage_products
+  const isAdmin = currentUser?.role === 'admin'
+  const canAct = isAdmin || (isEditing ? !!currentUser?.can_edit_products : !!currentUser?.can_create_products)
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', 'active'],
@@ -83,7 +84,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
     mutation.mutate(data)
   }
 
-  if (!isAdmin) return null
+  if (!canAct) return null
 
   return (
     <Modal open={open} onClose={onClose} title={isEditing ? 'Editar Produto' : 'Novo Produto'}>

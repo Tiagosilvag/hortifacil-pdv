@@ -19,7 +19,7 @@ async def create_product(
     current_user: User = Depends(get_current_user),
 ):
     from app.models.user import UserRole
-    if current_user.role != UserRole.admin and not current_user.can_manage_products:
+    if current_user.role != UserRole.admin and not current_user.can_create_products:
         raise HTTPException(status_code=403, detail="Sem permissão para cadastrar produtos")
     return await product_service.create_product(db, data)
 
