@@ -252,6 +252,7 @@ export default function NewOrder() {
                       <div>
                         <span className="font-medium text-slate-900 dark:text-slate-100">{p.name}</span>
                         {p.category && <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{p.category}</span>}
+                        {p.barcode && <span className="ml-2 text-xs font-mono text-slate-400 dark:text-slate-500">{p.barcode}</span>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-slate-500 dark:text-slate-400">/{formatUnit(p.unit_type)}</span>
@@ -428,6 +429,7 @@ function CartItemList({
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{product.name}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {formatCurrency(product.price)}/{formatUnit(product.unit_type)}
+              {product.barcode && <span className="ml-1.5 font-mono text-slate-400 dark:text-slate-500">{product.barcode}</span>}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">

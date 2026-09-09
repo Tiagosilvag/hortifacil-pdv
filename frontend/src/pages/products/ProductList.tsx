@@ -83,6 +83,7 @@ export default function ProductList() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categoria</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidade</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Preço</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cód. Barras</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Estoque</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Validade</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
@@ -98,6 +99,7 @@ export default function ProductList() {
                     <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700 dark:text-green-400">
                       {formatCurrency(p.price)}
                     </td>
+                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{p.barcode ?? '—'}</td>
                     <td className="px-4 py-3 text-right">{stockBadge(p)}</td>
                     <td className="px-4 py-3">{expiryBadge(p.expiry_date)}</td>
                     <td className="px-4 py-3">

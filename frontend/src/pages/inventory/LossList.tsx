@@ -269,7 +269,7 @@ export default function LossList() {
               <option value="">Selecionar produto...</option>
               {products.map((p: Product) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} (estoque: {Number(p.stock).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {formatUnit(p.unit_type)})
+                  {p.name}{p.barcode ? ` [${p.barcode}]` : ''} — {Number(p.stock).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {formatUnit(p.unit_type)}
                 </option>
               ))}
             </select>

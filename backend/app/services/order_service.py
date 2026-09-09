@@ -88,6 +88,7 @@ async def create_order(
             order_id=order.id,
             product_id=product.id,
             product_name=product.name,
+            barcode=product.barcode,
             unit_type=product.unit_type.value,
             qty=qty,
             unit_price=product.price,

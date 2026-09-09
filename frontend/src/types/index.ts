@@ -76,6 +76,7 @@ export interface OrderItem {
   id: string
   product_id: string
   product_name: string
+  barcode: string | null
   unit_type: string
   qty: number
   unit_price: number

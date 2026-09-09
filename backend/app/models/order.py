@@ -80,6 +80,7 @@ class OrderItem(Base):
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False
     )
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)  # snapshot no momento da venda
+    barcode: Mapped[str | None] = mapped_column(String(50), nullable=True)  # snapshot
     unit_type: Mapped[str] = mapped_column(String(20), nullable=False)       # snapshot
     qty: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)  # snapshot

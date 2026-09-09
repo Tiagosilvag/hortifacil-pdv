@@ -185,6 +185,7 @@ export default function OrderDetail() {
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.product_name}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {item.qty} {formatUnit(item.unit_type)} × {formatCurrency(item.unit_price)}
+                      {item.barcode && <span className="ml-2 font-mono text-slate-400 dark:text-slate-500">{item.barcode}</span>}
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
