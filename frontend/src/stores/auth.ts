@@ -21,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
         const { user } = get()
         if (!user) return false
         if (user.role === 'admin') return true
+        if (module === 'reports') return false // relatórios só para admin
         if (!user.allowed_modules) return true // operator sem restrição = acesso total
         return user.allowed_modules.includes(module)
       },
