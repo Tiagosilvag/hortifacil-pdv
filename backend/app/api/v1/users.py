@@ -45,6 +45,30 @@ async def create_user(
     return user
 
 
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Você não pode excluir sua própria conta")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    admin_count = await db.execute(
+        select(User).where(User.role == "admin", User.is_active == True)
+    )
+    if user.role == "admin" and len(list(admin_count.scalars().all())) <= 1:
+        raise HTTPException(status_code=400, detail="Não é possível excluir o único admin ativo do sistema")
+
+    await db.delete(user)
+    await db.commit()
+
+
 @router.patch("/{user_id}", response_model=UserOut)
 async def update_user(
     user_id: uuid.UUID,

@@ -31,3 +31,7 @@ export async function updateUser(id: string, body: UserUpdate): Promise<User> {
   const { data } = await api.patch<User>(`/users/${id}`, body)
   return data
 }
+
+export async function deleteUser(id: string): Promise<void> {
+  await api.delete(`/users/${id}`)
+}

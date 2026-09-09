@@ -7,8 +7,9 @@ import {
   XMarkIcon,
   CheckIcon,
   MagnifyingGlassIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
-import { listUsers, createUser, updateUser } from '@/api/users'
+import { listUsers, createUser, updateUser, deleteUser } from '@/api/users'
 import { getApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { ALL_MODULES, MODULE_LABELS } from '@/types'
@@ -265,6 +266,7 @@ export default function Settings() {
   const [modalUser, setModalUser] = useState<User | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [userSearch, setUserSearch] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
 
   const { data: users = [], isPending } = useQuery({
     queryKey: ['users'],
@@ -281,6 +283,14 @@ export default function Settings() {
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
       updateUser(id, { is_active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteUser(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setDeleteTarget(null)
+    },
   })
 
   const openCreate = () => { setModalUser(null); setShowModal(true) }
@@ -373,17 +383,26 @@ export default function Settings() {
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     {!isMe && (
-                      <button
-                        onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          u.is_active
-                            ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
-                            : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
-                        }`}
-                        title={u.is_active ? 'Desativar' : 'Ativar'}
-                      >
-                        {u.is_active ? <XMarkIcon className="w-4 h-4" /> : <CheckIcon className="w-4 h-4" />}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            u.is_active
+                              ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
+                              : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
+                          }`}
+                          title={u.is_active ? 'Desativar' : 'Ativar'}
+                        >
+                          {u.is_active ? <XMarkIcon className="w-4 h-4" /> : <CheckIcon className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(u)}
+                          className="p-1.5 rounded-lg transition-colors text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400"
+                          title="Excluir permanentemente"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -395,6 +414,44 @@ export default function Settings() {
 
       {showModal && (
         <UserFormModal user={modalUser} onClose={closeModal} />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setDeleteTarget(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0">
+                <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Excluir usuário</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+              Tem certeza que deseja excluir <span className="font-medium text-slate-900 dark:text-slate-100">{deleteTarget.name}</span>?
+            </p>
+            <p className="text-sm text-red-600 dark:text-red-400 mb-5">
+              Esta ação é permanente e não pode ser desfeita.
+            </p>
+            {deleteMutation.isError && (
+              <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 mb-4">
+                {getApiError(deleteMutation.error)}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deleteTarget.id)}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
