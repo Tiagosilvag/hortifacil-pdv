@@ -111,13 +111,13 @@ export default function OrderDetail() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link
-        to="/orders"
+      <button
+        onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mb-4"
       >
         <ArrowLeftIcon className="w-4 h-4" />
-        Pedidos
-      </Link>
+        Voltar
+      </button>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">

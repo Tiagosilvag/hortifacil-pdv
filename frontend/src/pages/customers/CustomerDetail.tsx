@@ -130,13 +130,13 @@ export default function CustomerDetail() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Back link */}
-      <Link
-        to="/customers"
+      <button
+        onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mb-4"
       >
         <ArrowLeftIcon className="w-4 h-4" />
-        Clientes
-      </Link>
+        Voltar
+      </button>
 
       {/* Customer card */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
