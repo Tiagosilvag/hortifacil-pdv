@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { BanknotesIcon } from '@heroicons/react/24/outline'
 import { listReceivables, registerPayment } from '@/api/receivables'
 import { formatCurrency, formatDate, formatDateShort, formatStatus } from '@/utils/format'
@@ -24,6 +25,7 @@ interface PaymentModal {
 
 export default function ReceivableList() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<string>('open,partial,overdue')
   const [payModal, setPayModal] = useState<PaymentModal | null>(null)
 
@@ -127,7 +129,12 @@ export default function ReceivableList() {
                   return (
                     <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">{rec.customer?.name ?? '—'}</p>
+                        <p
+                          className={`font-medium ${rec.customer ? 'text-green-700 dark:text-green-400 hover:underline cursor-pointer' : 'text-slate-900 dark:text-slate-100'}`}
+                          onClick={() => rec.customer && navigate(`/customers/${rec.customer.id}`)}
+                        >
+                          {rec.customer?.name ?? '—'}
+                        </p>
                         {rec.customer?.is_blocked && (
                           <Badge variant="red" className="mt-0.5">Bloqueado</Badge>
                         )}
