@@ -113,10 +113,12 @@ export default function ProductList() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Produtos</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{products.length} cadastrado{products.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={openNew} className="w-full sm:w-auto">
-          <PlusIcon className="w-4 h-4" />
-          Novo Produto
-        </Button>
+        {isAdmin && (
+          <Button onClick={openNew} className="w-full sm:w-auto">
+            <PlusIcon className="w-4 h-4" />
+            Novo Produto
+          </Button>
+        )}
       </div>
 
       <div className="relative mb-4">

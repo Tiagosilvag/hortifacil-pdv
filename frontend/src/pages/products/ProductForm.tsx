@@ -7,6 +7,7 @@ import { getApiError } from '@/api/client'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { useAuthStore } from '@/store/auth'
 import type { Product } from '@/types'
 
 interface FormData {
@@ -29,6 +30,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
   const qc = useQueryClient()
   const [apiError, setApiError] = useState('')
   const isEditing = product !== null
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.role === 'admin'
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', 'active'],
@@ -79,6 +82,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
     setApiError('')
     mutation.mutate(data)
   }
+
+  if (!isAdmin) return null
 
   return (
     <Modal open={open} onClose={onClose} title={isEditing ? 'Editar Produto' : 'Novo Produto'}>
