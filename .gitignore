@@ -36,6 +36,9 @@ frontend/*.tsbuildinfo
 .DS_Store
 Thumbs.db
 
+# Docker dev overrides
+docker-compose.override.yml
+
 # Logs
 *.log
 logs/

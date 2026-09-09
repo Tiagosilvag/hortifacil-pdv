@@ -20,9 +20,6 @@ services:
       - ./backend/.env
     depends_on:
       - redis
-    volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   redis:
     image: redis:7-alpine
@@ -32,3 +29,4 @@ services:
 # O PostgreSQL não está aqui pois o servidor já existe.
 # Configurar DATABASE_URL no .env apontando para o servidor existente.
 # Em produção o frontend (porta 3000) faz proxy de /api para o api (porta 8000).
+# Para desenvolvimento local, use docker-compose.override.yml com volume e --reload.
