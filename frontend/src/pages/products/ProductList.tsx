@@ -6,11 +6,14 @@ import {
   PencilSquareIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
-import { listProducts, updateProduct } from '@/api/products'
+import { listProducts, updateProduct, deleteProduct } from '@/api/products'
+import { getApiError } from '@/api/client'
 import { formatCurrency, formatUnit } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { useAuthStore } from '@/stores/auth'
 import ProductForm from './ProductForm'
 import type { Product } from '@/types'
 
@@ -35,9 +38,7 @@ function expiryBadge(expiry: string | null) {
 }
 
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (field !== sortField) {
-    return <ChevronUpIcon className="w-3 h-3 opacity-20" />
-  }
+  if (field !== sortField) return <ChevronUpIcon className="w-3 h-3 opacity-20" />
   return sortDir === 'asc'
     ? <ChevronUpIcon className="w-3 h-3 text-green-600 dark:text-green-400" />
     : <ChevronDownIcon className="w-3 h-3 text-green-600 dark:text-green-400" />
@@ -45,12 +46,17 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 
 export default function ProductList() {
   const qc = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.role === 'admin'
+
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [page, setPage] = useState(1)
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   const { data: products = [], isPending } = useQuery({
     queryKey: ['products', search],
@@ -76,26 +82,29 @@ export default function ProductList() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteProduct(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['products'] })
+      setDeleteTarget(null)
+      setDeleteError('')
+    },
+    onError: (err) => setDeleteError(getApiError(err)),
+  })
+
   const openNew = () => { setEditing(null); setModalOpen(true) }
   const openEdit = (p: Product) => { setEditing(p); setModalOpen(true) }
 
   const handleSort = (field: SortField) => {
-    if (field === sortField) {
-      setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortDir('asc')
-    }
+    if (field === sortField) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('asc') }
     setPage(1)
   }
 
-  const handleSearch = (v: string) => {
-    setSearch(v)
-    setPage(1)
-  }
+  const handleSearch = (v: string) => { setSearch(v); setPage(1) }
 
-  const thClass = "text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide"
-  const thSortClass = `${thClass} cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200`
+  const thBase = "text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide"
+  const thSort = `${thBase} cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200`
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -135,81 +144,97 @@ export default function ProductList() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th
-                      className={`${thSortClass} flex items-center gap-1`}
-                      onClick={() => handleSort('code')}
-                    >
-                      Cód. <SortIcon field="code" sortField={sortField} sortDir={sortDir} />
+                    <th className={thSort} onClick={() => handleSort('code')}>
+                      <span className="flex items-center gap-1">Cód. <SortIcon field="code" sortField={sortField} sortDir={sortDir} /></span>
                     </th>
-                    <th
-                      className={thSortClass}
-                      onClick={() => handleSort('name')}
-                    >
-                      <span className="flex items-center gap-1">
-                        Produto <SortIcon field="name" sortField={sortField} sortDir={sortDir} />
-                      </span>
+                    <th className={thSort} onClick={() => handleSort('name')}>
+                      <span className="flex items-center gap-1">Produto <SortIcon field="name" sortField={sortField} sortDir={sortDir} /></span>
                     </th>
-                    <th
-                      className={thSortClass}
-                      onClick={() => handleSort('category')}
-                    >
-                      <span className="flex items-center gap-1">
-                        Categoria <SortIcon field="category" sortField={sortField} sortDir={sortDir} />
-                      </span>
+                    <th className={thSort} onClick={() => handleSort('category')}>
+                      <span className="flex items-center gap-1">Categoria <SortIcon field="category" sortField={sortField} sortDir={sortDir} /></span>
                     </th>
-                    <th className={thClass}>Unidade</th>
+                    <th className={thBase}>Unidade</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Preço</th>
-                    <th className={thClass}>Cód. Barras</th>
-                    <th
-                      className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
-                      onClick={() => handleSort('stock')}
-                    >
-                      <span className="flex items-center gap-1 justify-end">
-                        Estoque <SortIcon field="stock" sortField={sortField} sortDir={sortDir} />
-                      </span>
+                    <th className={thBase}>Cód. Barras</th>
+                    <th className={`${thSort} text-right`} onClick={() => handleSort('stock')}>
+                      <span className="flex items-center gap-1 justify-end">Estoque <SortIcon field="stock" sortField={sortField} sortDir={sortDir} /></span>
                     </th>
-                    <th className={thClass}>Validade</th>
-                    <th className={thClass}>Status</th>
+                    <th className={thBase}>Validade</th>
+                    <th className={thBase}>Status</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {paginated.map((p) => (
-                    <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-                      <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-500 dark:text-slate-400">{String(p.code).padStart(3, '0')}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{p.name}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.category ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatUnit(p.unit_type)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700 dark:text-green-400">
-                        {formatCurrency(p.price)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{p.barcode ?? '—'}</td>
-                      <td className="px-4 py-3 text-right">{stockBadge(p)}</td>
-                      <td className="px-4 py-3">{expiryBadge(p.expiry_date)}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={p.is_active ? 'green' : 'slate'}>
-                          {p.is_active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          <button
-                            onClick={() => openEdit(p)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                            title="Editar"
-                          >
-                            <PencilSquareIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => toggleActive.mutate(p)}
-                            className="text-xs px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                          >
-                            {p.is_active ? 'Desativar' : 'Ativar'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paginated.map((p) => {
+                    const canEdit = isAdmin && !p.has_orders
+                    const canDelete = !p.has_orders
+
+                    const editTitle = !isAdmin
+                      ? 'Apenas administradores podem editar'
+                      : p.has_orders
+                      ? 'Produto com pedidos não pode ser alterado'
+                      : 'Editar'
+
+                    const deleteTitle = p.has_orders
+                      ? 'Produto com pedidos não pode ser excluído'
+                      : 'Excluir'
+
+                    return (
+                      <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-500 dark:text-slate-400">{String(p.code).padStart(3, '0')}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{p.name}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.category ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatUnit(p.unit_type)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700 dark:text-green-400">
+                          {formatCurrency(p.price)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{p.barcode ?? '—'}</td>
+                        <td className="px-4 py-3 text-right">{stockBadge(p)}</td>
+                        <td className="px-4 py-3">{expiryBadge(p.expiry_date)}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={p.is_active ? 'green' : 'slate'}>
+                            {p.is_active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 justify-end">
+                            {isAdmin && (
+                              <button
+                                onClick={() => canEdit && openEdit(p)}
+                                disabled={!canEdit}
+                                title={editTitle}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  canEdit
+                                    ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                    : 'text-slate-200 dark:text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                <PencilSquareIcon className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { if (canDelete) { setDeleteError(''); setDeleteTarget(p) } }}
+                              disabled={!canDelete}
+                              title={deleteTitle}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                canDelete
+                                  ? 'text-red-300 dark:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
+                                  : 'text-slate-200 dark:text-slate-700 cursor-not-allowed'
+                              }`}
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => toggleActive.mutate(p)}
+                              className="text-xs px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                            >
+                              {p.is_active ? 'Desativar' : 'Ativar'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -253,6 +278,45 @@ export default function ProductList() {
           </>
         )}
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setDeleteTarget(null); setDeleteError('') }} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0">
+                <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Excluir produto</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+              Tem certeza que deseja excluir <span className="font-medium text-slate-900 dark:text-slate-100">{deleteTarget.name}</span>?
+            </p>
+            <p className="text-sm text-red-600 dark:text-red-400 mb-5">
+              Esta ação é permanente e não pode ser desfeita.
+            </p>
+            {deleteError && (
+              <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 mb-4">
+                {deleteError}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setDeleteTarget(null); setDeleteError('') }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deleteTarget.id)}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProductForm
         open={modalOpen}

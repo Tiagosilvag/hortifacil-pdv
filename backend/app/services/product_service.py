@@ -4,7 +4,9 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.order import OrderItem
 from app.models.product import Product
+from app.models.user import User, UserRole
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
@@ -17,11 +19,32 @@ async def _check_name_unique(db: AsyncSession, name: str, exclude_id: uuid.UUID 
         raise HTTPException(status_code=409, detail="Já existe um produto com esse nome")
 
 
+async def _product_has_orders(db: AsyncSession, product_id: uuid.UUID) -> bool:
+    result = await db.execute(
+        select(OrderItem.id).where(OrderItem.product_id == product_id).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _annotate_has_orders(db: AsyncSession, products: list[Product]) -> list[Product]:
+    if not products:
+        return products
+    product_ids = [p.id for p in products]
+    result = await db.execute(
+        select(OrderItem.product_id).where(OrderItem.product_id.in_(product_ids)).distinct()
+    )
+    ids_with_orders = set(result.scalars().all())
+    for p in products:
+        p.has_orders = p.id in ids_with_orders  # type: ignore[attr-defined]
+    return products
+
+
 async def create_product(db: AsyncSession, data: ProductCreate) -> Product:
     await _check_name_unique(db, data.name)
     result = await db.execute(select(func.coalesce(func.max(Product.code), 0)))
     next_code = result.scalar() + 1
     product = Product(**data.model_dump(), code=next_code)
+    product.has_orders = False  # type: ignore[attr-defined]
     db.add(product)
     await db.commit()
     await db.refresh(product)
@@ -30,14 +53,20 @@ async def create_product(db: AsyncSession, data: ProductCreate) -> Product:
 
 async def get_product(db: AsyncSession, product_id: uuid.UUID) -> Product | None:
     result = await db.execute(select(Product).where(Product.id == product_id))
-    return result.scalar_one_or_none()
+    product = result.scalar_one_or_none()
+    if product:
+        product.has_orders = await _product_has_orders(db, product_id)  # type: ignore[attr-defined]
+    return product
 
 
 async def get_product_by_barcode(db: AsyncSession, barcode: str) -> Product | None:
     result = await db.execute(
         select(Product).where(Product.barcode == barcode, Product.is_active == True)
     )
-    return result.scalar_one_or_none()
+    product = result.scalar_one_or_none()
+    if product:
+        product.has_orders = await _product_has_orders(db, product.id)  # type: ignore[attr-defined]
+    return product
 
 
 async def list_products(
@@ -51,7 +80,6 @@ async def list_products(
     if active_only:
         q = q.where(Product.is_active == True)
     if search:
-        # search by numeric code or by name/barcode/category
         if search.strip().isdigit():
             q = q.where(Product.code == int(search.strip()))
         else:
@@ -64,16 +92,38 @@ async def list_products(
         q = q.where(Product.category == category)
     q = q.order_by(Product.name)
     result = await db.execute(q)
-    return list(result.scalars().all())
+    products = list(result.scalars().all())
+    return await _annotate_has_orders(db, products)
 
 
 async def update_product(
-    db: AsyncSession, product: Product, data: ProductUpdate
+    db: AsyncSession, product: Product, data: ProductUpdate, current_user: User
 ) -> Product:
-    if data.name is not None:
-        await _check_name_unique(db, data.name, exclude_id=product.id)
-    for field, value in data.model_dump(exclude_none=True).items():
+    updates = data.model_dump(exclude_none=True)
+    data_fields = {k: v for k, v in updates.items() if k != "is_active"}
+
+    if data_fields:
+        # Alterar dados do produto requer admin e sem histórico de pedidos
+        if current_user.role != UserRole.admin:
+            raise HTTPException(status_code=403, detail="Apenas administradores podem alterar dados do produto")
+        if await _product_has_orders(db, product.id):
+            raise HTTPException(status_code=409, detail="Não é possível alterar um produto que já possui pedidos")
+        if data.name is not None:
+            await _check_name_unique(db, data.name, exclude_id=product.id)
+
+    for field, value in updates.items():
         setattr(product, field, value)
     await db.commit()
     await db.refresh(product)
+    product.has_orders = await _product_has_orders(db, product.id)  # type: ignore[attr-defined]
     return product
+
+
+async def delete_product(db: AsyncSession, product: Product) -> None:
+    if await _product_has_orders(db, product.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Não é possível excluir um produto que já possui pedidos registrados"
+        )
+    await db.delete(product)
+    await db.commit()

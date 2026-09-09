@@ -64,6 +64,7 @@ export interface Product {
   expiry_date: string | null
   is_active: boolean
   created_at: string
+  has_orders: boolean
 }
 
 export interface StockLoss {

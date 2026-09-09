@@ -35,3 +35,7 @@ export async function getProductByBarcode(barcode: string): Promise<Product> {
   const { data } = await api.get<Product>(`/products/barcode/${barcode}`)
   return data
 }
+
+export async function deleteProduct(id: string): Promise<void> {
+  await api.delete(`/products/${id}`)
+}

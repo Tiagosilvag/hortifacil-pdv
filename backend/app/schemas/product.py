@@ -56,3 +56,4 @@ class ProductOut(BaseModel):
     expiry_date: date | None
     is_active: bool
     created_at: datetime
+    has_orders: bool = False

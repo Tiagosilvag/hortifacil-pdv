@@ -66,9 +66,21 @@ async def update_product(
     product_id: uuid.UUID,
     data: ProductUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    product = await product_service.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    return await product_service.update_product(db, product, data, current_user)
+
+
+@router.delete("/{product_id}", status_code=204)
+async def delete_product(
+    product_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     product = await product_service.get_product(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return await product_service.update_product(db, product, data)
+    await product_service.delete_product(db, product)
