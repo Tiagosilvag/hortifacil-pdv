@@ -7,7 +7,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.receivable import ReceivableStatus
 from app.models.user import User
-from app.schemas.receivable import PaymentCreate, ReceivableOut
+from app.schemas.receivable import BulkPayCreate, BulkPayResult, PaymentCreate, ReceivableOut
 from app.services import receivable_service
 
 router = APIRouter(prefix="/receivables", tags=["receivables"])
@@ -24,6 +24,15 @@ async def list_receivables(
     return await receivable_service.list_receivables(
         db, customer_id=customer_id, status=status, open_only=open_only
     )
+
+
+@router.post("/bulk-pay", response_model=BulkPayResult)
+async def bulk_pay(
+    data: BulkPayCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await receivable_service.bulk_pay(db, data.customer_id, data.amount, current_user)
 
 
 @router.post("/{receivable_id}/pay", response_model=ReceivableOut)

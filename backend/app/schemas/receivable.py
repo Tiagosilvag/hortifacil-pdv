@@ -58,3 +58,21 @@ class PaymentCreate(BaseModel):
         if v <= 0:
             raise ValueError("Valor do pagamento deve ser maior que zero")
         return v
+
+
+class BulkPayCreate(BaseModel):
+    customer_id: uuid.UUID
+    amount: Decimal
+
+    @field_validator("amount")
+    @classmethod
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Valor do pagamento deve ser maior que zero")
+        return v
+
+
+class BulkPayResult(BaseModel):
+    total_paid: Decimal
+    receivables_updated: int
+    customer_balance_due: Decimal

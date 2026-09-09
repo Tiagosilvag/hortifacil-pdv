@@ -89,3 +89,59 @@ async def register_payment(
         _receivable_query().where(Receivable.id == receivable_id)
     )
     return result2.scalar_one()
+
+
+async def bulk_pay(
+    db: AsyncSession,
+    customer_id: uuid.UUID,
+    amount: Decimal,
+    current_user: User,
+) -> dict:
+    q = (
+        select(Receivable)
+        .where(
+            Receivable.customer_id == customer_id,
+            Receivable.status.in_([ReceivableStatus.open, ReceivableStatus.partial]),
+        )
+        .order_by(Receivable.created_at.asc())
+    )
+    result = await db.execute(q)
+    receivables = list(result.scalars().all())
+
+    if not receivables:
+        raise HTTPException(status_code=400, detail="Não há fiados em aberto para este cliente")
+
+    remaining = amount
+    updated = 0
+    now = datetime.now(timezone.utc)
+
+    for rec in receivables:
+        if remaining <= 0:
+            break
+        owed = rec.amount - rec.amount_paid
+        pay = min(remaining, owed)
+        rec.amount_paid += pay
+        rec.paid_by_id = current_user.id
+        rec.paid_by_name = current_user.name
+        rec.paid_at = now
+        rec.status = ReceivableStatus.paid if rec.amount_paid >= rec.amount else ReceivableStatus.partial
+        remaining -= pay
+        updated += 1
+
+    actual_paid = amount - remaining
+
+    customer_result = await db.execute(select(Customer).where(Customer.id == customer_id))
+    customer = customer_result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    customer.balance_due = max(Decimal("0.00"), customer.balance_due - actual_paid)
+    customer_service._refresh_block_status(customer)
+
+    await db.commit()
+
+    return {
+        "total_paid": actual_paid,
+        "receivables_updated": updated,
+        "customer_balance_due": customer.balance_due,
+    }

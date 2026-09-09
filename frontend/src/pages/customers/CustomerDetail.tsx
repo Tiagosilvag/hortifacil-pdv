@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftIcon,
@@ -13,12 +13,12 @@ import {
 } from '@heroicons/react/24/outline'
 import { getCustomer } from '@/api/customers'
 import { listOrders, cancelOrder } from '@/api/orders'
-import { listReceivables, registerPayment } from '@/api/receivables'
+import { listReceivables, bulkPayReceivables } from '@/api/receivables'
 import { formatCurrency, formatDate, formatPayment, formatStatus } from '@/utils/format'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getApiError } from '@/api/client'
-import type { Order, Receivable, OrderStatus, ReceivableStatus } from '@/types'
+import type { Order, OrderStatus } from '@/types'
 
 function orderStatusVariant(status: OrderStatus): 'green' | 'slate' | 'red' | 'amber' {
   if (status === 'delivered') return 'green'
@@ -26,26 +26,17 @@ function orderStatusVariant(status: OrderStatus): 'green' | 'slate' | 'red' | 'a
   return 'amber'
 }
 
-function receivableStatusVariant(status: ReceivableStatus): 'amber' | 'blue' | 'emerald' | 'red' | 'slate' {
-  if (status === 'open') return 'amber'
-  if (status === 'partial') return 'blue'
-  if (status === 'paid') return 'emerald'
-  if (status === 'overdue') return 'red'
-  return 'slate'
-}
-
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'orders' | 'receivables'>('orders')
 
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null)
   const [cancelReason, setCancelReason] = useState('')
 
-  const [payTarget, setPayTarget] = useState<Receivable | null>(null)
-  const [payAmount, setPayAmount] = useState('')
-  const [payError, setPayError] = useState('')
+  const [bulkPayOpen, setBulkPayOpen] = useState(false)
+  const [bulkPayAmount, setBulkPayAmount] = useState('')
+  const [bulkPayError, setBulkPayError] = useState('')
 
   const { data: customer, isPending: loadingCustomer } = useQuery({
     queryKey: ['customer', id],
@@ -59,10 +50,10 @@ export default function CustomerDetail() {
     enabled: !!id,
   })
 
-  const { data: receivables = [], isPending: loadingReceivables } = useQuery({
+  const { data: receivables = [] } = useQuery({
     queryKey: ['customer-receivables', id],
     queryFn: () => listReceivables({ customer_id: id }),
-    enabled: !!id && tab === 'receivables',
+    enabled: !!id,
   })
 
   const cancelMutation = useMutation({
@@ -70,35 +61,34 @@ export default function CustomerDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customer-orders', id] })
       qc.invalidateQueries({ queryKey: ['customer', id] })
+      qc.invalidateQueries({ queryKey: ['customer-receivables', id] })
       setCancelTarget(null)
       setCancelReason('')
     },
   })
 
-  const payMutation = useMutation({
-    mutationFn: ({ rec, amount }: { rec: Receivable; amount: number }) =>
-      registerPayment(rec.id, amount),
+  const bulkPayMutation = useMutation({
+    mutationFn: (amount: number) => bulkPayReceivables(id!, amount),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customer-receivables', id] })
       qc.invalidateQueries({ queryKey: ['customer', id] })
-      setPayTarget(null)
-      setPayAmount('')
-      setPayError('')
+      setBulkPayOpen(false)
+      setBulkPayAmount('')
+      setBulkPayError('')
     },
-    onError: (err) => setPayError(getApiError(err)),
+    onError: (err) => setBulkPayError(getApiError(err)),
   })
 
-  const openPayModal = (rec: Receivable) => {
-    const remaining = rec.amount - rec.amount_paid
-    setPayTarget(rec)
-    setPayAmount(remaining.toFixed(2))
-    setPayError('')
+  const openBulkPay = () => {
+    setBulkPayAmount(customer ? customer.balance_due.toFixed(2) : '')
+    setBulkPayError('')
+    setBulkPayOpen(true)
   }
 
-  const handlePay = () => {
-    const amount = parseFloat(payAmount)
-    if (isNaN(amount) || amount <= 0) { setPayError('Valor inválido'); return }
-    payMutation.mutate({ rec: payTarget!, amount })
+  const handleBulkPay = () => {
+    const amount = parseFloat(bulkPayAmount)
+    if (isNaN(amount) || amount <= 0) { setBulkPayError('Valor inválido'); return }
+    bulkPayMutation.mutate(amount)
   }
 
   if (loadingCustomer) {
@@ -120,16 +110,18 @@ export default function CustomerDetail() {
     )
   }
 
-  const totalOrders = orders.length
   const activeOrders = orders.filter((o) => o.status !== 'cancelled')
   const totalSpent = activeOrders.reduce((s, o) => s + Number(o.total), 0)
   const totalPaid = activeOrders
     .filter((o) => o.payment_type !== 'installment')
     .reduce((s, o) => s + Number(o.total), 0)
 
+  // Map receivables by order_number for quick lookup
+  const recByOrderNum = new Map(receivables.map((r) => [r.order_number, r]))
+
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Back link */}
+      {/* Back */}
       <button
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mb-4"
@@ -175,7 +167,7 @@ export default function CustomerDetail() {
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCell
             icon={<CurrencyDollarIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
@@ -191,7 +183,7 @@ export default function CustomerDetail() {
           <StatCell
             icon={<ShoppingBagIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />}
             label="Total de pedidos"
-            value={String(totalOrders)}
+            value={String(orders.length)}
           />
           <StatCell
             icon={<BanknotesIcon className="w-4 h-4 text-green-600 dark:text-green-400" />}
@@ -208,52 +200,48 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
-        {(['orders', 'receivables'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={[
-              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-              tab === t
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300',
-            ].join(' ')}
-          >
-            {t === 'orders' ? 'Pedidos' : 'Fiado'}
-          </button>
-        ))}
-      </div>
+      {/* Orders section */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Pedidos</h2>
+          {customer.balance_due > 0 && (
+            <Button size="sm" onClick={openBulkPay}>
+              <BanknotesIcon className="w-4 h-4 mr-1.5" />
+              Receber Fiado
+            </Button>
+          )}
+        </div>
 
-      {/* Orders tab */}
-      {tab === 'orders' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          {loadingOrders ? (
-            <div className="flex items-center justify-center h-40">
-              <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 dark:text-slate-500">
-              <ShoppingBagIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p>Nenhum pedido encontrado</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pagamento</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Operador</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Data</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {orders.map((order) => (
+        {loadingOrders ? (
+          <div className="flex items-center justify-center h-40">
+            <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">
+            <ShoppingBagIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p>Nenhum pedido encontrado</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pagamento</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Falta pagar</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Operador</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Data</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {orders.map((order) => {
+                  const rec = order.payment_type === 'installment' ? recByOrderNum.get(order.order_number) : undefined
+                  const fiadoRemaining = rec ? rec.amount - rec.amount_paid : null
+                  return (
                     <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                       <td className="px-4 py-3 tabular-nums font-mono text-slate-600 dark:text-slate-400">
                         #{order.order_number}
@@ -263,6 +251,19 @@ export default function CustomerDetail() {
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-slate-100">
                         {formatCurrency(order.total)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {fiadoRemaining !== null ? (
+                          fiadoRemaining > 0 ? (
+                            <span className="font-semibold text-amber-700 dark:text-amber-400">
+                              {formatCurrency(fiadoRemaining)}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Quitado</span>
+                          )
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={orderStatusVariant(order.status)}>
@@ -286,85 +287,15 @@ export default function CustomerDetail() {
                         )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* Receivables tab */}
-      {tab === 'receivables' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          {loadingReceivables ? (
-            <div className="flex items-center justify-center h-40">
-              <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : receivables.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 dark:text-slate-500">
-              <BanknotesIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p>Nenhum fiado encontrado</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pedido</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pago</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Restante</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Data</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {receivables.map((rec) => {
-                    const remaining = rec.amount - rec.amount_paid
-                    return (
-                      <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                          {rec.order_number ? `#${rec.order_number}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
-                          {formatCurrency(rec.amount)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                          {rec.amount_paid > 0 ? formatCurrency(rec.amount_paid) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold text-amber-700 dark:text-amber-400">
-                          {remaining > 0 ? formatCurrency(remaining) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">Quitado</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={receivableStatusVariant(rec.status)}>
-                            {formatStatus(rec.status)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">
-                          {formatDate(rec.created_at)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {rec.status !== 'paid' && (
-                            <Button size="sm" variant="secondary" onClick={() => openPayModal(rec)}>
-                              Receber
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Cancel order modal */}
+      {/* Cancel modal */}
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/40" onClick={() => setCancelTarget(null)} />
@@ -400,17 +331,19 @@ export default function CustomerDetail() {
         </div>
       )}
 
-      {/* Payment modal */}
-      {payTarget && (
+      {/* Receber Fiado modal */}
+      {bulkPayOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setPayTarget(null)} />
+          <div className="fixed inset-0 bg-black/40" onClick={() => setBulkPayOpen(false)} />
           <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-sm w-full">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Registrar pagamento</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Receber Fiado</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              {payTarget.order_number && `Pedido #${payTarget.order_number} — `}
-              <span className="font-medium text-amber-600 dark:text-amber-400">
-                {formatCurrency(payTarget.amount - payTarget.amount_paid)} restante
+              Total em aberto:{' '}
+              <span className="font-semibold text-amber-600 dark:text-amber-400">
+                {formatCurrency(customer.balance_due)}
               </span>
+              <br />
+              O valor será descontado dos pedidos mais antigos primeiro.
             </p>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">
               Valor recebido (R$)
@@ -419,17 +352,17 @@ export default function CustomerDetail() {
               type="number"
               step="0.01"
               min="0.01"
-              value={payAmount}
-              onChange={(e) => { setPayAmount(e.target.value); setPayError('') }}
+              value={bulkPayAmount}
+              onChange={(e) => { setBulkPayAmount(e.target.value); setBulkPayError('') }}
               className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 mb-4 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               autoFocus
             />
-            {payError && <p className="text-xs text-red-600 dark:text-red-400 mb-3">{payError}</p>}
+            {bulkPayError && <p className="text-xs text-red-600 dark:text-red-400 mb-3">{bulkPayError}</p>}
             <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setPayTarget(null)}>
+              <Button variant="secondary" className="flex-1" onClick={() => setBulkPayOpen(false)}>
                 Cancelar
               </Button>
-              <Button className="flex-1" loading={payMutation.isPending} onClick={handlePay}>
+              <Button className="flex-1" loading={bulkPayMutation.isPending} onClick={handleBulkPay}>
                 Confirmar
               </Button>
             </div>
