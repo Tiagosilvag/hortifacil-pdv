@@ -12,7 +12,7 @@ class ProductCreate(BaseModel):
     barcode: str | None = None
     unit_type: UnitType = UnitType.unit
     price: Decimal
-    category: str | None = None
+    category: str
     stock: Decimal = Decimal("0")
     expiry_date: date | None = None
 

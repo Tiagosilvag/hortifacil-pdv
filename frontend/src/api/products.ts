@@ -6,7 +6,7 @@ export interface ProductCreate {
   barcode?: string
   unit_type: string
   price: number
-  category?: string
+  category: string
   stock?: number
   expiry_date?: string | null
 }

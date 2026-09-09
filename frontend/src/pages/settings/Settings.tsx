@@ -8,8 +8,10 @@ import {
   CheckIcon,
   MagnifyingGlassIcon,
   TrashIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline'
 import { listUsers, createUser, updateUser, deleteUser } from '@/api/users'
+import { listCategories, createCategory, toggleCategory, deleteCategory } from '@/api/categories'
 import { getApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { ALL_MODULES, MODULE_LABELS } from '@/types'
@@ -18,6 +20,8 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import type { ModuleKey, User } from '@/types'
 import { formatDate } from '@/utils/format'
+
+type Tab = 'users' | 'categories'
 
 interface UserFormData {
   name: string
@@ -260,9 +264,156 @@ function UserFormModal({ user, onClose }: { user: User | null; onClose: () => vo
   )
 }
 
+function CategoriesTab() {
+  const qc = useQueryClient()
+  const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  const { data: categories = [], isPending } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(false),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () => createCategory(newName.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      setNewName('')
+      setCreateError('')
+    },
+    onError: (err) => setCreateError(getApiError(err)),
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => toggleCategory(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteCategory(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      setDeleteTarget(null)
+    },
+    onError: (err) => setCreateError(getApiError(err)),
+  })
+
+  const handleCreate = () => {
+    if (!newName.trim()) { setCreateError('Nome obrigatório'); return }
+    setCreateError('')
+    createMutation.mutate()
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div>
+          <h2 className="font-semibold text-slate-900 dark:text-slate-100">Categorias de produtos</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            {categories.length} categoria{categories.length !== 1 ? 's' : ''} cadastrada{categories.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex gap-2">
+          <input
+            value={newName}
+            onChange={(e) => { setNewName(e.target.value); setCreateError('') }}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            placeholder="Nova categoria (ex: Frutas, Legumes, Verduras...)"
+            className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          />
+          <Button size="sm" onClick={handleCreate} loading={createMutation.isPending}>
+            <PlusIcon className="w-4 h-4 mr-1" />
+            Adicionar
+          </Button>
+        </div>
+        {createError && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{createError}</p>
+        )}
+      </div>
+
+      {isPending ? (
+        <div className="flex items-center justify-center h-24">
+          <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
+          Nenhuma categoria cadastrada
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100 dark:divide-slate-700">
+          {categories.map((c) => (
+            <div key={c.id} className={`px-5 py-3 flex items-center justify-between gap-4 ${!c.is_active ? 'opacity-50' : ''}`}>
+              <div className="flex items-center gap-2">
+                <TagIcon className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{c.name}</span>
+                {!c.is_active && <Badge variant="slate">Inativa</Badge>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => toggleMutation.mutate(c.id)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    c.is_active
+                      ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
+                      : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
+                  }`}
+                  title={c.is_active ? 'Desativar' : 'Ativar'}
+                >
+                  {c.is_active ? <XMarkIcon className="w-4 h-4" /> : <CheckIcon className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(c.id)}
+                  className="p-1.5 rounded-lg transition-colors text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400"
+                  title="Excluir categoria"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setDeleteTarget(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0">
+                <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Excluir categoria</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">
+              Tem certeza? Esta ação é permanente e não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deleteTarget)}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const currentUser = useAuthStore((s) => s.user)
   const qc = useQueryClient()
+  const [activeTab, setActiveTab] = useState<Tab>('users')
   const [modalUser, setModalUser] = useState<User | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [userSearch, setUserSearch] = useState('')
@@ -297,6 +448,13 @@ export default function Settings() {
   const openEdit = (u: User) => { setModalUser(u); setShowModal(true) }
   const closeModal = () => setShowModal(false)
 
+  const tabClass = (t: Tab) =>
+    `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+      activeTab === t
+        ? 'bg-green-600 text-white'
+        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+    }`
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -304,113 +462,126 @@ export default function Settings() {
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Configurações</h1>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-          <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-100">Usuários do sistema</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              {users.length} usuário{users.length !== 1 ? 's' : ''} cadastrado{users.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Button onClick={openCreate} size="sm">
-            <PlusIcon className="w-4 h-4 mr-1.5" />
-            Novo usuário
-          </Button>
-        </div>
+      <div className="flex gap-2 mb-5">
+        <button className={tabClass('users')} onClick={() => setActiveTab('users')}>
+          Usuários
+        </button>
+        <button className={tabClass('categories')} onClick={() => setActiveTab('categories')}>
+          Categorias
+        </button>
+      </div>
 
-        {users.length > 3 && (
-          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-              <input
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Buscar usuário por nome ou e-mail..."
-                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-              />
+      {activeTab === 'categories' && <CategoriesTab />}
+
+      {activeTab === 'users' && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+            <div>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Usuários do sistema</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {users.length} usuário{users.length !== 1 ? 's' : ''} cadastrado{users.length !== 1 ? 's' : ''}
+              </p>
             </div>
+            <Button onClick={openCreate} size="sm">
+              <PlusIcon className="w-4 h-4 mr-1.5" />
+              Novo usuário
+            </Button>
           </div>
-        )}
 
-        {isPending ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
-                Nenhum usuário encontrado
+          {users.length > 3 && (
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Buscar usuário por nome ou e-mail..."
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                />
               </div>
-            )}
-            {filteredUsers.map((u) => {
-              const isMe = u.id === currentUser?.id
-              return (
-                <div key={u.id} className={`px-5 py-4 flex items-start justify-between gap-4 ${!u.is_active ? 'opacity-50' : ''}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-slate-900 dark:text-slate-100">{u.name}</span>
-                      {isMe && <Badge variant="green">Você</Badge>}
-                      {!u.is_active && <Badge variant="slate">Inativo</Badge>}
-                      <Badge variant={u.role === 'admin' ? 'blue' : 'slate'}>
-                        {u.role === 'admin' ? 'Admin' : 'Operador'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{u.email}</p>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {u.role === 'admin' || u.allowed_modules === null ? (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">Acesso total</span>
-                      ) : u.allowed_modules.length === 0 ? (
-                        <span className="text-xs text-red-500 dark:text-red-400 font-medium">Sem acesso a módulos</span>
-                      ) : (
-                        u.allowed_modules.map((m) => (
-                          <span key={m} className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
-                            {MODULE_LABELS[m]}
-                          </span>
-                        ))
+            </div>
+          )}
+
+          {isPending ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {filteredUsers.length === 0 && (
+                <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
+                  Nenhum usuário encontrado
+                </div>
+              )}
+              {filteredUsers.map((u) => {
+                const isMe = u.id === currentUser?.id
+                return (
+                  <div key={u.id} className={`px-5 py-4 flex items-start justify-between gap-4 ${!u.is_active ? 'opacity-50' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{u.name}</span>
+                        {isMe && <Badge variant="green">Você</Badge>}
+                        {!u.is_active && <Badge variant="slate">Inativo</Badge>}
+                        <Badge variant={u.role === 'admin' ? 'blue' : 'slate'}>
+                          {u.role === 'admin' ? 'Admin' : 'Operador'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{u.email}</p>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {u.role === 'admin' || u.allowed_modules === null ? (
+                          <span className="text-xs text-slate-400 dark:text-slate-500">Acesso total</span>
+                        ) : u.allowed_modules.length === 0 ? (
+                          <span className="text-xs text-red-500 dark:text-red-400 font-medium">Sem acesso a módulos</span>
+                        ) : (
+                          u.allowed_modules.map((m) => (
+                            <span key={m} className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
+                              {MODULE_LABELS[m]}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      {u.last_login && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Último acesso: {formatDate(u.last_login)}</p>
                       )}
                     </div>
-                    {u.last_login && (
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Último acesso: {formatDate(u.last_login)}</p>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => openEdit(u)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        title="Editar"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      {!isMe && (
+                        <>
+                          <button
+                            onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              u.is_active
+                                ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
+                                : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
+                            }`}
+                            title={u.is_active ? 'Desativar' : 'Ativar'}
+                          >
+                            {u.is_active ? <XMarkIcon className="w-4 h-4" /> : <CheckIcon className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(u)}
+                            className="p-1.5 rounded-lg transition-colors text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400"
+                            title="Excluir permanentemente"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openEdit(u)}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                      title="Editar"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    {!isMe && (
-                      <>
-                        <button
-                          onClick={() => toggleActive.mutate({ id: u.id, is_active: !u.is_active })}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            u.is_active
-                              ? 'text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400'
-                              : 'text-green-300 dark:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'
-                          }`}
-                          title={u.is_active ? 'Desativar' : 'Ativar'}
-                        >
-                          {u.is_active ? <XMarkIcon className="w-4 h-4" /> : <CheckIcon className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(u)}
-                          className="p-1.5 rounded-lg transition-colors text-red-300 dark:text-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400"
-                          title="Excluir permanentemente"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {showModal && (
         <UserFormModal user={modalUser} onClose={closeModal} />

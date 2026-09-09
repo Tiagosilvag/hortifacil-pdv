@@ -1,5 +1,6 @@
 import uuid
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +8,17 @@ from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
+async def _check_name_unique(db: AsyncSession, name: str, exclude_id: uuid.UUID | None = None) -> None:
+    q = select(Product).where(Product.name.ilike(name))
+    if exclude_id:
+        q = q.where(Product.id != exclude_id)
+    result = await db.execute(q)
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Já existe um produto com esse nome")
+
+
 async def create_product(db: AsyncSession, data: ProductCreate) -> Product:
+    await _check_name_unique(db, data.name)
     result = await db.execute(select(func.coalesce(func.max(Product.code), 0)))
     next_code = result.scalar() + 1
     product = Product(**data.model_dump(), code=next_code)
@@ -40,7 +51,15 @@ async def list_products(
     if active_only:
         q = q.where(Product.is_active == True)
     if search:
-        q = q.where(Product.name.ilike(f"%{search}%"))
+        # search by numeric code or by name/barcode/category
+        if search.strip().isdigit():
+            q = q.where(Product.code == int(search.strip()))
+        else:
+            q = q.where(
+                Product.name.ilike(f"%{search}%")
+                | Product.barcode.ilike(f"%{search}%")
+                | Product.category.ilike(f"%{search}%")
+            )
     if category:
         q = q.where(Product.category == category)
     q = q.order_by(Product.name)
@@ -51,6 +70,8 @@ async def list_products(
 async def update_product(
     db: AsyncSession, product: Product, data: ProductUpdate
 ) -> Product:
+    if data.name is not None:
+        await _check_name_unique(db, data.name, exclude_id=product.id)
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(product, field, value)
     await db.commit()

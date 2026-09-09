@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createProduct, updateProduct } from '@/api/products'
+import { listCategories } from '@/api/categories'
 import { getApiError } from '@/api/client'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select } from '@/components/ui/Input'
@@ -29,6 +30,12 @@ export default function ProductForm({ open, onClose, product }: Props) {
   const [apiError, setApiError] = useState('')
   const isEditing = product !== null
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', 'active'],
+    queryFn: () => listCategories(true),
+    enabled: open,
+  })
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>()
 
   useEffect(() => {
@@ -53,7 +60,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
         barcode: data.barcode || undefined,
         unit_type: data.unit_type,
         price: parseFloat(data.price),
-        category: data.category || undefined,
+        category: data.category,
         stock: parseFloat(data.stock) || 0,
         expiry_date: data.expiry_date || null,
       }
@@ -107,11 +114,16 @@ export default function ProductForm({ open, onClose, product }: Props) {
             })}
           />
         </div>
-        <Input
-          label="Categoria"
-          placeholder="Ex: Frutas, Legumes, Verduras..."
-          {...register('category')}
-        />
+        <Select
+          label="Categoria *"
+          error={errors.category?.message}
+          {...register('category', { required: 'Categoria obrigatória' })}
+        >
+          <option value="">Selecione uma categoria...</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>{c.name}</option>
+          ))}
+        </Select>
         <Input
           label="Código de barras"
           placeholder="EAN-13 ou outro código"
@@ -134,8 +146,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
         </div>
 
         {apiError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            <p className="text-sm text-red-700">{apiError}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+            <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
           </div>
         )}
 
