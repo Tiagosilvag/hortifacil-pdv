@@ -8,6 +8,21 @@ import { Badge } from '@/components/ui/Badge'
 import ProductForm from './ProductForm'
 import type { Product } from '@/types'
 
+function stockBadge(p: Product) {
+  if (p.stock <= 0) return <Badge variant="red">Zerado</Badge>
+  if (p.stock < 5) return <Badge variant="amber">{Number(p.stock).toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</Badge>
+  return <span className="text-sm tabular-nums text-slate-700 dark:text-slate-300">{Number(p.stock).toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</span>
+}
+
+function expiryBadge(expiry: string | null) {
+  if (!expiry) return <span className="text-slate-400 dark:text-slate-500">—</span>
+  const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000)
+  if (days < 0) return <Badge variant="red">Vencido</Badge>
+  if (days <= 3) return <Badge variant="red">{expiry}</Badge>
+  if (days <= 7) return <Badge variant="amber">{expiry}</Badge>
+  return <span className="text-sm text-slate-600 dark:text-slate-400">{expiry}</span>
+}
+
 export default function ProductList() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -28,7 +43,7 @@ export default function ProductList() {
   const openEdit = (p: Product) => { setEditing(p); setModalOpen(true) }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Produtos</h1>
@@ -68,7 +83,8 @@ export default function ProductList() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categoria</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidade</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Preço</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cód. Barras</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Estoque</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Validade</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -82,7 +98,8 @@ export default function ProductList() {
                     <td className="px-4 py-3 text-right tabular-nums font-semibold text-green-700 dark:text-green-400">
                       {formatCurrency(p.price)}
                     </td>
-                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{p.barcode ?? '—'}</td>
+                    <td className="px-4 py-3 text-right">{stockBadge(p)}</td>
+                    <td className="px-4 py-3">{expiryBadge(p.expiry_date)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={p.is_active ? 'green' : 'slate'}>
                         {p.is_active ? 'Ativo' : 'Inativo'}

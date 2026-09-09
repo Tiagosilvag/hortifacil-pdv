@@ -9,6 +9,7 @@ import {
   Cog6ToothIcon,
   ChartBarIcon,
   XMarkIcon,
+  CubeIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/stores/auth'
 import type { ModuleKey } from '@/types'
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { to: '/customers', icon: UsersIcon, label: 'Clientes', exact: true, module: 'customers' },
   { to: '/products', icon: ArchiveBoxIcon, label: 'Produtos', exact: true, module: 'products' },
   { to: '/reports', icon: ChartBarIcon, label: 'Relatórios', exact: true, module: 'reports' },
+  { to: '/inventory', icon: CubeIcon, label: 'Estoque', exact: true, module: 'inventory' },
 ]
 
 interface Props {
@@ -122,7 +124,7 @@ export default function Sidebar({ open, onClose }: Props) {
             </NavLink>
           )}
           <div className="px-3 py-2">
-            <p className="text-green-500 dark:text-green-800 text-xs text-center">v1.0 — Fase 1</p>
+            <p className="text-green-500 dark:text-green-800 text-xs text-center">v1.1 — Fase 2</p>
           </div>
         </div>
       </aside>

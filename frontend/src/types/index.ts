@@ -1,8 +1,8 @@
 export type UserRole = 'admin' | 'operator'
 
-export type ModuleKey = 'dashboard' | 'new_order' | 'orders' | 'receivables' | 'customers' | 'products' | 'reports'
+export type ModuleKey = 'dashboard' | 'new_order' | 'orders' | 'receivables' | 'customers' | 'products' | 'reports' | 'inventory'
 
-export const ALL_MODULES: ModuleKey[] = ['dashboard', 'new_order', 'orders', 'receivables', 'customers', 'products', 'reports']
+export const ALL_MODULES: ModuleKey[] = ['dashboard', 'new_order', 'orders', 'receivables', 'customers', 'products', 'reports', 'inventory']
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   dashboard: 'Dashboard',
@@ -12,6 +12,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   customers: 'Clientes',
   products: 'Produtos',
   reports: 'Relatórios',
+  inventory: 'Estoque',
 }
 
 export interface User {
@@ -51,7 +52,20 @@ export interface Product {
   unit_type: UnitType
   price: number
   category: string | null
+  stock: number
+  expiry_date: string | null
   is_active: boolean
+  created_at: string
+}
+
+export interface StockLoss {
+  id: string
+  product_id: string | null
+  product_name: string
+  unit_type: string
+  qty: number
+  reason: string | null
+  created_by_name: string
   created_at: string
 }
 

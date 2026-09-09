@@ -14,6 +14,8 @@ interface FormData {
   unit_type: string
   price: string
   category: string
+  stock: string
+  expiry_date: string
 }
 
 interface Props {
@@ -38,6 +40,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
         unit_type: product?.unit_type ?? 'unit',
         price: product?.price ? String(product.price) : '',
         category: product?.category ?? '',
+        stock: product?.stock != null ? String(product.stock) : '0',
+        expiry_date: product?.expiry_date ?? '',
       })
     }
   }, [open, product, reset])
@@ -50,6 +54,8 @@ export default function ProductForm({ open, onClose, product }: Props) {
         unit_type: data.unit_type,
         price: parseFloat(data.price),
         category: data.category || undefined,
+        stock: parseFloat(data.stock) || 0,
+        expiry_date: data.expiry_date || null,
       }
       return isEditing
         ? updateProduct(product!.id, body)
@@ -111,6 +117,21 @@ export default function ProductForm({ open, onClose, product }: Props) {
           placeholder="EAN-13 ou outro código"
           {...register('barcode')}
         />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Estoque atual"
+            type="number"
+            step="0.001"
+            min="0"
+            placeholder="0"
+            {...register('stock')}
+          />
+          <Input
+            label="Validade"
+            type="date"
+            {...register('expiry_date')}
+          />
+        </div>
 
         {apiError && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">

@@ -1,9 +1,9 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -29,6 +29,8 @@ class Product(Base):
     )
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    stock: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=Decimal("0"), server_default="0")
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

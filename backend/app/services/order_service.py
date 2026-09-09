@@ -94,6 +94,7 @@ async def create_order(
             subtotal=subtotal,
         )
         db.add(item)
+        product.stock = (product.stock or Decimal("0")) - qty
 
     if data.payment_type == PaymentType.installment and customer:
         receivable = Receivable(
@@ -173,6 +174,15 @@ async def cancel_order(
     order.status = OrderStatus.cancelled
     if reason:
         order.notes = f"[CANCELADO por {current_user.name}] {reason}"
+
+    # restore stock for each item
+    for item in order.items:
+        result_p = await db.execute(
+            select(Product).where(Product.id == item.product_id)
+        )
+        product = result_p.scalar_one_or_none()
+        if product:
+            product.stock = (product.stock or Decimal("0")) + item.qty
 
     if order.payment_type == PaymentType.installment and order.customer_id:
         result = await db.execute(

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, field_validator
@@ -13,6 +13,8 @@ class ProductCreate(BaseModel):
     unit_type: UnitType = UnitType.unit
     price: Decimal
     category: str | None = None
+    stock: Decimal = Decimal("0")
+    expiry_date: date | None = None
 
     @field_validator("price")
     @classmethod
@@ -29,6 +31,8 @@ class ProductUpdate(BaseModel):
     price: Decimal | None = None
     category: str | None = None
     is_active: bool | None = None
+    stock: Decimal | None = None
+    expiry_date: date | None = None
 
     @field_validator("price")
     @classmethod
@@ -47,5 +51,7 @@ class ProductOut(BaseModel):
     unit_type: UnitType
     price: Decimal
     category: str | None
+    stock: Decimal
+    expiry_date: date | None
     is_active: bool
     created_at: datetime

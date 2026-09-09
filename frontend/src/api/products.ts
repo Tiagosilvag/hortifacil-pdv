@@ -7,6 +7,8 @@ export interface ProductCreate {
   unit_type: string
   price: number
   category?: string
+  stock?: number
+  expiry_date?: string | null
 }
 
 export interface ProductListParams {

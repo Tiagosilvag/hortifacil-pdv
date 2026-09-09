@@ -14,6 +14,7 @@ import OrderDetail from '@/pages/orders/OrderDetail'
 import ReceivableList from '@/pages/receivables/ReceivableList'
 import Settings from '@/pages/settings/Settings'
 import SalesReport from '@/pages/reports/SalesReport'
+import LossList from '@/pages/inventory/LossList'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token)
@@ -115,6 +116,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SalesReport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <LossList />
             </ProtectedRoute>
           }
         />
