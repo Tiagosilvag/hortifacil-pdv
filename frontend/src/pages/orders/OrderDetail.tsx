@@ -100,7 +100,7 @@ export default function OrderDetail() {
     return (
       <div className="text-center py-16 text-slate-500 dark:text-slate-400">
         <p>Pedido não encontrado.</p>
-        <button onClick={() => navigate('/orders')} className="mt-4 text-green-700 dark:text-green-400 hover:underline text-sm">
+        <button onClick={() => navigate(-1)} className="mt-4 text-green-700 dark:text-green-400 hover:underline text-sm">
           Voltar para pedidos
         </button>
       </div>

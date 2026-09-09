@@ -113,7 +113,7 @@ export default function CustomerDetail() {
     return (
       <div className="text-center py-16 text-slate-500 dark:text-slate-400">
         <p>Cliente não encontrado.</p>
-        <button onClick={() => navigate('/customers')} className="mt-4 text-green-700 dark:text-green-400 hover:underline text-sm">
+        <button onClick={() => navigate(-1)} className="mt-4 text-green-700 dark:text-green-400 hover:underline text-sm">
           Voltar para clientes
         </button>
       </div>

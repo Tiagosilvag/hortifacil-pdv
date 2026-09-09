@@ -146,7 +146,7 @@ export default function NewOrder() {
           <p className="text-slate-500 dark:text-slate-400 mb-2">Registrado com sucesso!</p>
           <p className="text-3xl font-bold text-green-700 dark:text-green-400 mb-8">{formatCurrency(lastOrder.total)}</p>
           <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => navigate('/orders')}>
+            <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
               Ver Pedidos
             </Button>
             <Button className="flex-1" onClick={handleNewOrder}>
