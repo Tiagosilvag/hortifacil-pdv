@@ -54,7 +54,7 @@ export default function CustomerDetail() {
   const { data: orders = [], isPending: loadingOrders } = useQuery({
     queryKey: ['customer-orders', id],
     queryFn: () => listOrders({ customer_id: id, limit: 200 }),
-    enabled: !!id && tab === 'orders',
+    enabled: !!id,
   })
 
   const { data: receivables = [], isPending: loadingReceivables } = useQuery({
@@ -119,9 +119,11 @@ export default function CustomerDetail() {
   }
 
   const totalOrders = orders.length
-  const totalSpent = orders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((s, o) => s + o.total, 0)
+  const activeOrders = orders.filter((o) => o.status !== 'cancelled')
+  const totalSpent = activeOrders.reduce((s, o) => s + Number(o.total), 0)
+  const totalPaid = activeOrders
+    .filter((o) => o.payment_type !== 'installment')
+    .reduce((s, o) => s + Number(o.total), 0)
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -160,7 +162,7 @@ export default function CustomerDetail() {
         </div>
 
         {/* Stats row */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCell
             icon={<CurrencyDollarIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
             label="Fiado em aberto"
@@ -173,7 +175,7 @@ export default function CustomerDetail() {
             value={customer.credit_limit > 0 ? formatCurrency(customer.credit_limit) : 'Sem limite'}
           />
           <StatCell
-            icon={<ShoppingBagIcon className="w-4 h-4 text-green-600 dark:text-green-400" />}
+            icon={<ShoppingBagIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />}
             label="Total de pedidos"
             value={String(totalOrders)}
           />
@@ -182,6 +184,12 @@ export default function CustomerDetail() {
             label="Total gasto"
             value={formatCurrency(totalSpent)}
             highlight="green"
+          />
+          <StatCell
+            icon={<BanknotesIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+            label="Total pago"
+            value={formatCurrency(totalPaid)}
+            highlight="emerald"
           />
         </div>
       </div>
@@ -225,6 +233,7 @@ export default function CustomerDetail() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pagamento</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Operador</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Data</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -245,6 +254,9 @@ export default function CustomerDetail() {
                         <Badge variant={orderStatusVariant(order.status)}>
                           {formatStatus(order.status)}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        {order.created_by_name}
                       </td>
                       <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">
                         {formatDate(order.created_at)}
@@ -423,7 +435,7 @@ function StatCell({
   icon: React.ReactNode
   label: string
   value: string
-  highlight?: 'green' | 'amber'
+  highlight?: 'green' | 'amber' | 'emerald'
 }) {
   return (
     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 border border-slate-200 dark:border-slate-700">
@@ -435,6 +447,7 @@ function StatCell({
         'text-base font-bold tabular-nums',
         highlight === 'amber' ? 'text-amber-700 dark:text-amber-400' :
         highlight === 'green' ? 'text-green-700 dark:text-green-400' :
+        highlight === 'emerald' ? 'text-emerald-700 dark:text-emerald-400' :
         'text-slate-900 dark:text-slate-100',
       ].join(' ')}>
         {value}
