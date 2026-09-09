@@ -168,13 +168,11 @@ export default function ProductList() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {paginated.map((p) => {
-                    const canEdit = isAdmin && !p.has_orders
+                    const canEdit = isAdmin
                     const canDelete = !p.has_orders
 
                     const editTitle = !isAdmin
                       ? 'Apenas administradores podem editar'
-                      : p.has_orders
-                      ? 'Produto com pedidos não pode ser alterado'
                       : 'Editar'
 
                     const deleteTitle = p.has_orders

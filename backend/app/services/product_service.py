@@ -103,11 +103,8 @@ async def update_product(
     data_fields = {k: v for k, v in updates.items() if k != "is_active"}
 
     if data_fields:
-        # Alterar dados do produto requer admin e sem histórico de pedidos
         if current_user.role != UserRole.admin:
             raise HTTPException(status_code=403, detail="Apenas administradores podem alterar dados do produto")
-        if await _product_has_orders(db, product.id):
-            raise HTTPException(status_code=409, detail="Não é possível alterar um produto que já possui pedidos")
         if data.name is not None:
             await _check_name_unique(db, data.name, exclude_id=product.id)
 
