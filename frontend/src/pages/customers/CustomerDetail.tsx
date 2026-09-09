@@ -80,7 +80,7 @@ export default function CustomerDetail() {
   })
 
   const openBulkPay = () => {
-    setBulkPayAmount(customer ? customer.balance_due.toFixed(2) : '')
+    setBulkPayAmount(customer ? Number(customer.balance_due).toFixed(2) : '')
     setBulkPayError('')
     setBulkPayOpen(true)
   }

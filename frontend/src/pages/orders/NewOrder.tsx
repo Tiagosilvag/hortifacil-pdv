@@ -267,25 +267,35 @@ export default function NewOrder() {
             </div>
           </div>
 
-          {cart.length > 0 && (
-            <div className="lg:hidden bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Itens ({cart.length})</p>
-              <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} />
-            </div>
-          )}
+          {/* Cart items — always visible in the left column */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 min-h-[200px]">
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-16 text-slate-400 dark:text-slate-500">
+                <ShoppingCartIcon className="w-10 h-10 mb-3 opacity-30" />
+                <p className="text-sm">Nenhum produto adicionado</p>
+              </div>
+            ) : (
+              <div className="p-4">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Itens <span className="text-slate-400 dark:text-slate-500 font-normal">({cart.length})</span>
+                </p>
+                <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: order summary */}
         <div className="flex flex-col gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-4">
             <div>
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Resumo do pedido</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Resumo do pedido</p>
               {cart.length === 0 ? (
-                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">Nenhum item adicionado</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500">Nenhum item adicionado</p>
               ) : (
-                <div className="hidden lg:block">
-                  <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} />
-                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {cart.length} {cart.length === 1 ? 'produto' : 'produtos'} adicionados
+                </p>
               )}
             </div>
 
