@@ -42,3 +42,10 @@ docker-compose.override.yml
 # Logs
 *.log
 logs/
+
+# Migração do Gestão Fácil: dados pessoais de clientes, certificado digital e senha do banco. NUNCA versionar.
+GestaoFacil/
+/Clientes.pdf
+/Clientes 2.pdf
+/Produtos Novo.pdf
+migration/out/
