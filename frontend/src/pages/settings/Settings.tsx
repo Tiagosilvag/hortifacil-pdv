@@ -21,8 +21,9 @@ import { Badge } from '@/components/ui/Badge'
 import type { ModuleKey, User } from '@/types'
 import { formatDate } from '@/utils/format'
 import { ScaleTab } from './ScaleTab'
+import { PrinterTab } from './PrinterTab'
 
-type Tab = 'users' | 'categories' | 'scale'
+type Tab = 'users' | 'categories' | 'scale' | 'printer'
 
 interface UserFormData {
   name: string
@@ -504,10 +505,14 @@ export default function Settings() {
         <button className={tabClass('scale')} onClick={() => setActiveTab('scale')}>
           Balança
         </button>
+        <button className={tabClass('printer')} onClick={() => setActiveTab('printer')}>
+          Impressora
+        </button>
       </div>
 
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'scale' && <ScaleTab />}
+      {activeTab === 'printer' && <PrinterTab />}
 
       {activeTab === 'users' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
