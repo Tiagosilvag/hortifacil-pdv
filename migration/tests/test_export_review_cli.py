@@ -95,3 +95,13 @@ def test_run_fails_loudly_when_a_pdf_has_no_customers_or_products(tmp_path: Path
     with pytest.raises(SystemExit, match="Nenhum produto"):
         run([Path("c.pdf")], Path("vazio.pdf"), tmp_path, extract=lambda pdf: texts[pdf.name])
     assert list(tmp_path.iterdir()) == []  # nada é escrito quando falha
+
+
+def test_run_fails_when_any_customer_pdf_has_no_customers(tmp_path: Path):
+    """Um PDF trocado no meio da lista não pode passar só porque os outros têm clientes."""
+    products_text = page([row(1, None, "ALFACE", "UN", "1,00", "2,50", "10", "25,00")])
+    texts = {"c.pdf": customers_page(customer_block(1, razao="ANA")), "p.pdf": products_text, "outro.pdf": products_text}
+
+    with pytest.raises(SystemExit, match="outro.pdf"):
+        run([Path("c.pdf"), Path("outro.pdf")], Path("p.pdf"), tmp_path, extract=lambda pdf: texts[pdf.name])
+    assert list(tmp_path.iterdir()) == []

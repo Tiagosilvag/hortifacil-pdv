@@ -17,7 +17,7 @@ python migration/parse_pdfs.py --customers "Clientes.pdf" "Clientes 2.pdf" --pro
 
 Saída em `migration/out/`: `customers.csv`, `products.csv`, `rejects.csv` e `review.html`.
 
-Abra o `review.html` e confira, principalmente: produtos rejeitados, nomes duplicados renomeados, nomes suspeitos, decisões de unidade e categorias, "Conferir o preço" e os pontos de atenção de clientes. Para corrigir algo, edite o `products.csv` / `customers.csv`. O Excel em português serve: o importador aceita `;`, vírgula decimal e cp1252. Categorias novas são criadas automaticamente. `unit_type` deve ser `unit`, `kg`, `gram`, `liter`, `box` ou `bunch`.
+Abra o `review.html` e confira, principalmente: produtos rejeitados, nomes duplicados renomeados, nomes suspeitos, decisões de unidade e categorias, "Conferir o preço" e os pontos de atenção de clientes. Para corrigir algo, edite o `products.csv` / `customers.csv`. **Prefira um editor de texto** (VS Code, Bloco de Notas): os CSVs usam vírgula e ponto decimal, e um duplo clique no Excel em português joga tudo numa coluna só. Se usar o Excel, importe por *Dados > De Texto/CSV* e defina a coluna `barcode` como **Texto**: aberto como número, o código de barras vira `7,89665E+12` e perde zeros à esquerda. O importador recusa códigos de barras que não sejam só dígitos (6 a 14) e mostra a linha. Ele também aceita CSV salvo pelo Excel (`;`, vírgula decimal, cp1252); **confira o `barcode` e o `price` de algumas linhas depois de salvar**. Categorias novas são criadas automaticamente. `unit_type` deve ser `unit`, `kg`, `gram`, `liter`, `box` ou `bunch`.
 
 ## Etapa 2: importar no HortiFácil
 

@@ -40,9 +40,10 @@ def run(
 ) -> dict[str, int]:
     raw_customers = []
     for pdf in customer_pdfs:
-        raw_customers.extend(parse_customers_text(extract(pdf), pdf.name))
-    if not raw_customers:
-        raise SystemExit("Nenhum cliente encontrado nos PDFs de clientes. Confira se são mesmo a 'Listagem de pessoas'.")
+        found = parse_customers_text(extract(pdf), pdf.name)
+        if not found:
+            raise SystemExit(f"Nenhum cliente encontrado em {pdf.name}. Confira se é mesmo a 'Listagem de pessoas'.")
+        raw_customers.extend(found)
     merge = merge_customers(raw_customers)
 
     parsed = parse_products_text(extract(products_pdf))

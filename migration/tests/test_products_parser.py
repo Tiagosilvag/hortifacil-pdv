@@ -74,7 +74,7 @@ def test_stock_check_divergent_and_no_data():
 
 def test_columns_are_calibrated_per_page():
     normal = page([row(1, None, "NORMAL", "UN", "3,00", "5,00", "2", "10,00")], number=1)
-    shifted = page([row(2, None, "DESLOCADO", "KG", "4,00", "7,50", "2", "15,00", shift=2)], shift=2, number=2)
+    shifted = page([row(2, None, "DESLOCADO", "KG", "4,00", "7,50", "2", "15,00", shift=5)], shift=5, number=2)
     products = {p.code: p for p in parse_products_text(normal + shifted).products}
     assert products[1].price == Decimal("5.00")
     assert products[2].price == Decimal("7.50")
@@ -87,3 +87,16 @@ def test_price_with_thousands_separator():
     (p,) = parse_products_text(text).products
     assert p.price == Decimal("1234.50")
     assert p.check == "ok"
+
+
+def test_unit_read_as_a_fragment_is_rejected_instead_of_becoming_unit():
+    """Linha 2 caracteres à esquerda do cabeçalho: 'KG' seria lido como 'G' e virava venda por unidade."""
+    misaligned = row(3, None, "BANANA PRATA", "KG", "5,00", "6,99", "10", "69,90", shift=0)
+    result = parse_products_text(page([misaligned], shift=2))
+    assert result.products == []
+    assert [r.reason for r in result.rejects] == ["unidade desconhecida"]
+
+
+def test_unknown_unit_is_rejected():
+    result = parse_products_text(page([row(4, None, "ESTRANHO", "ZZ", "1,00", "2,00", "1", "2,00")]))
+    assert [r.reason for r in result.rejects] == ["unidade desconhecida"]

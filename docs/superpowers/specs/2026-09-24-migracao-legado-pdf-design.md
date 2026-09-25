@@ -75,7 +75,7 @@ Dependência de sistema: `pdftotext` (poppler). Saída em `migration/out/`, que 
 **Clientes**
 - Cada bloco iniciado por `CÓDIGO:` vira um registro; lê os dois PDFs.
 - Normaliza CPF/CNPJ (só dígitos), telefone (só dígitos) e nomes (espaços, caixa).
-- Identidade: CPF/CNPJ normalizado; sem documento, nome + endereço normalizados.
+- Identidade: CPF/CNPJ normalizado; sem documento, nome + rua + número normalizados.
 - Registros idênticos são unificados em silêncio (contados no resumo). Registros com a mesma identidade mas dados divergentes (`dados-divergentes`) mantêm o **primeiro** (ordem dos PDFs) e vão para os pontos de atenção do `review.html`. Um mesmo código para pessoas diferentes (`codigo-repetido`) importa **as duas** e também é listado.
 - Telefone: prefere celular a fixo; telefones extras vão para `notes` ("Outros fones"). CPF/CNPJ e telefones são gravados formatados, como o PDF os imprime.
 - Colunas do `customers.csv` importadas: `name` (razão), `document`, `phone` (primeiro celular/fone disponível), `address` (endereço, bairro, cidade/UF, CEP concatenados) e `notes`. Padrões: `customer_type = counter`, `credit_limit = 0`, ativo.
@@ -85,13 +85,13 @@ Dependência de sistema: `pdftotext` (poppler). Saída em `migration/out/`, que 
 **Produtos**
 - Agrupa as linhas por registro (linhas consecutivas sem linha em branco) e calibra as colunas pelo cabeçalho de cada página. Código e código de barras vêm do início da linha, descrição da faixa entre "Referência" e "Und", unidade da coluna "Und", preço da coluna "Preço".
 - Fragmentos numéricos soltos (sem código nem descrição) são descartados e contados como ruído.
-- Rejeita, com o texto original e o número da linha, o registro sem código, descrição, unidade ou preço, ou com preço ≤ 0 (`rejects.csv`).
+- Rejeita, com o texto original e o número da linha, o registro sem código, descrição, unidade ou preço, com unidade fora da lista que o Gestão Fácil imprime (KG, UN, CX, SC, PCT, PC, PT, EMB, GR, ML, LT, GF, RL, CJ; evita ler `KG` como `G`) ou com preço ≤ 0 (`rejects.csv`).
 - A conta `estoque × preço ≈ total` (tolerância de 2%) é apenas informativa: gera a coluna `check` (`ok` / `divergente` / `sem-dados`) e a seção "Conferir o preço" do relatório.
 - Campos exportados: `code` (antigo), `barcode`, `name`, `unit_type` (regra combinada), `price`, `category` (palavras-chave), `stock = 0`, `legacy_unit`, `legacy_cost`, `legacy_stock`, `check` e `renamed_from`. As colunas `legacy_*`, `check` e `renamed_from` são só referência; o importador as ignora.
 - Nomes duplicados são renomeados conforme a tabela de decisões (§3).
 - Categorias: Frutas, Verduras, Legumes, Temperos e Ervas, Ovos e Laticínios, Bebidas, Limpeza e Higiene, Descartáveis e Utilidades, Mercearia e Outros (a regra é ordenada; exceções como "batata palha" ou "leite de coco" vêm antes das regras gerais).
 - `review.html` mostra: resumo, rejeitados, nomes duplicados renomeados, nomes suspeitos (2 letras ou menos, ou só números), unidade antiga → nova, decisões de unidade que diferem da coluna antiga, produtos por categoria, preços a conferir, clientes ignorados, pontos de atenção de clientes e preenchimento dos campos de cliente.
-- O CLI falha alto (e não escreve nada) se um PDF não tiver nenhum cliente ou nenhum produto, para pegar PDF trocado.
+- O CLI falha alto (e não escreve nada) se **qualquer** PDF de clientes não tiver nenhum cliente, ou se o PDF de produtos não tiver nenhum produto, para pegar PDF trocado.
 
 **Garantia de conferência:** o relatório abre com totais (lidos, prontos, rejeitados, ruído) para comparar com os PDFs.
 
@@ -112,6 +112,7 @@ Comportamento:
 - **Conflitos abortam o `--apply`:** colisão de código ou de nome (sem diferenciar maiúsculas/acentos, respeitando a regra de `_check_name_unique`) com produto existente, e código ou nome repetido dentro do próprio CSV. O dry-run lista tudo.
 - **Categorias:** cria em `categories` as que os produtos novos usam e ainda não existem.
 - **`--clear-test-data`:** apaga, na mesma transação do import, contas a receber, itens de pedido, pedidos, perdas de estoque, clientes e produtos, nessa ordem por causa das chaves estrangeiras. **Preserva usuários e categorias.** Mostra as contagens exatas (também no dry-run) e exige digitar `APAGAR`. Com essa opção, o plano é calculado como se o banco já estivesse limpo.
+- **Recusa código de barras que não seja só dígitos (6 a 14):** o Excel converte EAN para notação científica (`7,89665E+12`) e apaga zeros à esquerda; isso não pode entrar em silêncio.
 - **Aceita CSV salvo pelo Excel em português:** separador `;`, vírgula decimal (`1.234,56`) e codificação cp1252, além do UTF-8 gerado pelo parser.
 - **Falha ao gravar:** rollback, mensagem curta sem parâmetros do SQL (que conteriam dados de clientes) e código de saída 3.
 - **Códigos de saída:** 0 = ok / dry-run limpo; 1 = conflitos ou confirmação não dada; 2 = CSV inválido; 3 = erro ao gravar.

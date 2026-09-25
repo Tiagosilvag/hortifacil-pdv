@@ -115,12 +115,12 @@ def _identity(raw: RawCustomer) -> tuple:
     digits = only_digits(raw.document)
     if len(digits) in (11, 14):
         return ("doc", digits)
-    return ("name", fold(raw.razao), fold(raw.street))
+    return ("name", fold(raw.razao), fold(raw.street), fold(raw.number))
 
 
 def _same_person_data(a: RawCustomer, b: RawCustomer) -> bool:
-    return (fold(a.razao), fold(a.street), fold(a.bairro), set(a.phones)) == (
-        fold(b.razao), fold(b.street), fold(b.bairro), set(b.phones))
+    return (fold(a.razao), fold(a.street), fold(a.number), fold(a.bairro), set(a.phones)) == (
+        fold(b.razao), fold(b.street), fold(b.number), fold(b.bairro), set(b.phones))
 
 
 def _address(raw: RawCustomer) -> str:

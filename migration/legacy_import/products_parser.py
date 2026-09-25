@@ -16,6 +16,8 @@ MONEY = re.compile(r"-?\d[\d\.]*,\d+")
 NUMBER = re.compile(r"-?\d[\d\.]*(?:,\d+)?")
 UNIT = re.compile(r"([A-Z]{1,4})(?=\s|$)")
 COLUMN_TOLERANCE = 3
+# Unidades que o Gestão Fácil imprime. Qualquer outra coisa é fragmento de leitura ("G" de "KG"): rejeitar.
+KNOWN_UNITS = frozenset({"KG", "UN", "CX", "SC", "PCT", "PC", "PT", "EMB", "GR", "ML", "LT", "GF", "RL", "CJ"})
 
 
 @dataclass(frozen=True)
@@ -168,6 +170,8 @@ def parse_products_text(text: str) -> ProductsResult:
             problem = "sem descrição"
         elif unit is None:
             problem = "sem unidade"
+        elif unit not in KNOWN_UNITS:
+            problem = "unidade desconhecida"
         elif "preco" not in money:
             problem = "sem preço"
         elif parse_decimal(money["preco"]) <= 0:

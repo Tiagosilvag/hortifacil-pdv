@@ -42,10 +42,10 @@ def prow(**overrides) -> dict:
 # ---------- leitura de CSV
 
 def test_read_products_parses_valid_rows(tmp_path):
-    path = write_csv(tmp_path / "p.csv", PRODUCT_COLUMNS, [prow(), prow(code="2", name="MAÇÃ", barcode="789")])
+    path = write_csv(tmp_path / "p.csv", PRODUCT_COLUMNS, [prow(), prow(code="2", name="MAÇÃ", barcode="7896646570284")])
     rows = read_products(path)
     assert [r.code for r in rows] == [1, 2]
-    assert rows[1].barcode == "789" and rows[0].barcode is None
+    assert rows[1].barcode == "7896646570284" and rows[0].barcode is None
     assert rows[0].price == Decimal("6.99")
 
 
@@ -152,3 +152,15 @@ def test_format_plan_mentions_conflicts_counts_and_mode():
     assert "CONFLITOS (1)" in text
     assert "dry-run" in text
     assert "APLICAR" in format_plan(plan, apply=True, clear_counts=None)
+
+
+def test_read_products_rejects_barcodes_damaged_by_excel(tmp_path):
+    """O Excel mostra EAN de 13 dígitos como 7,89665E+12 e salva assim; isso não pode entrar no banco."""
+    path = write_csv(tmp_path / "p.csv", PRODUCT_COLUMNS, [
+        prow(barcode="7,89665E+12"), prow(code="2", barcode="7896646570284"), prow(code="3", barcode="789 6646")])
+    with pytest.raises(CsvError) as info:
+        read_products(path)
+    message = str(info.value)
+    assert "linha 2" in message and "código de barras inválido" in message
+    assert "linha 4" in message
+    assert "linha 3" not in message  # o EAN correto passa

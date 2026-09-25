@@ -91,3 +91,12 @@ def test_customers_without_document_are_matched_by_name_and_street():
     result = merge_customers(a + b + c)
     assert len(result.customers) == 2  # a e b são a mesma pessoa; c mora em outra rua
     assert result.duplicates_merged == 1
+
+
+def test_same_name_and_street_with_different_house_numbers_are_different_people():
+    """Sem CPF/CNPJ, dois homônimos na mesma rua com números diferentes não podem virar um só em silêncio."""
+    a = parse(customer_block(1, razao="JOSE DA SILVA", street="RUA D", number="10"), source="Clientes.pdf")
+    b = parse(customer_block(2, razao="JOSE DA SILVA", street="RUA D", number="20"), source="Clientes 2.pdf")
+    result = merge_customers(a + b)
+    assert len(result.customers) == 2
+    assert result.duplicates_merged == 0

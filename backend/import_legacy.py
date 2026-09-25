@@ -140,8 +140,10 @@ def read_products(path: Path) -> list[ProductRow]:
             if not category or len(category) > 100:
                 raise ValueError("categoria vazia ou com mais de 100 caracteres")
             barcode = r["barcode"].strip() or None
-            if barcode and len(barcode) > 50:
-                raise ValueError("código de barras com mais de 50 caracteres")
+            if barcode and not re.fullmatch(r"\d{6,14}", barcode):
+                raise ValueError(
+                    f"código de barras inválido: {barcode!r} (só dígitos, de 6 a 14; o Excel costuma "
+                    "converter EAN para notação científica e apagar zeros à esquerda)")
         except (ValueError, InvalidOperation) as exc:
             errors.append(f"{path.name} linha {line}: {exc}")
             continue
