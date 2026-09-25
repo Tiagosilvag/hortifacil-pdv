@@ -11,7 +11,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { listCustomers } from '@/api/customers'
-import { listProducts } from '@/api/products'
+import { getProductByBarcode, listProducts } from '@/api/products'
 import { createOrder } from '@/api/orders'
 import { getApiError } from '@/api/client'
 import { formatCurrency, formatUnit } from '@/utils/format'
@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/Badge'
 import { captureFailureMessage } from '@/hardware/scale/reading'
 import { ScaleIndicator } from '@/hardware/scale/ScaleIndicator'
 import { useScale } from '@/hardware/scale/useScale'
+import { useBarcodeScanner } from '@/hardware/scanner/useBarcodeScanner'
 import { SingleFlight } from '@/hardware/scale/singleFlight'
 import { addItem, changeQty } from './cart'
 import type { Customer, Product } from '@/types'
@@ -64,6 +65,7 @@ export default function NewOrder() {
   const scale = useScale()
   const [scaleNotice, setScaleNotice] = useState('')
   const [capturing, setCapturing] = useState(false)
+  const [scanNotice, setScanNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const flight = useRef(new SingleFlight()).current
 
   useEffect(() => {
@@ -71,6 +73,12 @@ export default function NewOrder() {
     const timer = setTimeout(() => setScaleNotice(''), 5000)
     return () => clearTimeout(timer)
   }, [scaleNotice])
+
+  useEffect(() => {
+    if (!scanNotice) return
+    const timer = setTimeout(() => setScanNotice(null), scanNotice.tone === 'ok' ? 2000 : 5000)
+    return () => clearTimeout(timer)
+  }, [scanNotice])
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers-search', customerSearch],
@@ -151,6 +159,20 @@ export default function NewOrder() {
     setScaleNotice('')
     setQty(productId, result.weightKg)
   }
+
+  // Leitor de código de barras (tipo teclado): busca o produto e o adiciona como se tivesse sido clicado
+  // (produto em kg pega o peso da balança). Código desconhecido ou repetido só avisa.
+  const handleScan = async (code: string) => {
+    try {
+      const product = await getProductByBarcode(code)
+      setScanNotice({ tone: 'ok', text: `Lido: ${product.name}` })
+      await addProduct(product)
+    } catch (error) {
+      const status = (error as { response?: { status?: number } } | null)?.response?.status
+      setScanNotice({ tone: 'error', text: status === 404 ? `Código ${code} não cadastrado.` : getApiError(error) })
+    }
+  }
+  useBarcodeScanner(handleScan, !success)
 
   const updateQty = (productId: string, delta: number) => {
     setCart((prev) => changeQty(prev, productId, delta))
@@ -328,6 +350,17 @@ export default function NewOrder() {
           {capturing && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
               Aguardando o peso estabilizar...
+            </div>
+          )}
+          {scanNotice && (
+            <div
+              className={
+                scanNotice.tone === 'ok'
+                  ? 'rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300'
+                  : 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+              }
+            >
+              {scanNotice.text}
             </div>
           )}
           {scaleNotice && (
