@@ -27,13 +27,12 @@ describe('renderReceiptHtml', () => {
     expect(html).toContain('&quot;y&quot;')
   })
 
-  it('a página tem a largura da bobina escolhida, sem margem, e é sempre preto no branco', () => {
+  it('o cupom tem a largura da bobina escolhida (o papel vem do driver), a página sem margem, e é sempre preto no branco', () => {
     const at80 = render({ blocks: [] }, 80)
-    expect(at80).toContain('@page { size: 80mm auto; margin: 0; }')
+    expect(at80).toContain('@page { margin: 0; }')
     expect(at80).toContain('width: 80mm')
     const at58 = render({ blocks: [] }, 58)
-    expect(at58).toContain('@page { size: 58mm auto; margin: 0; }')
-    expect(at58).toContain('width: 58mm')
+        expect(at58).toContain('width: 58mm')
     expect(at80).toContain('background: #fff')
     expect(at80).toContain('color: #000')
   })

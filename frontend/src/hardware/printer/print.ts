@@ -18,6 +18,8 @@ export function printHtml(html: string): void {
 
   frame.onload = () => {
     const win = frame.contentWindow
+    // Sem isto, um `load` do about:blank inicial imprimiria uma página em branco antes do cupom.
+    if (win && win.location.href === 'about:blank') return
     if (!win) {
       cleanup()
       return
@@ -27,6 +29,7 @@ export function printHtml(html: string): void {
     win.print()
     setTimeout(cleanup, CLEANUP_MS) // se o navegador não avisar o fim da impressão
   }
-  document.body.appendChild(frame)
+  // srcdoc antes de entrar na página: no Chromium, um iframe sem src dispara `load` (do about:blank) ao ser inserido.
   frame.srcdoc = html
+  document.body.appendChild(frame)
 }

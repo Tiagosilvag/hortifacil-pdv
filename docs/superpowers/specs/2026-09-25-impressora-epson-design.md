@@ -38,7 +38,7 @@ Pasta nova `frontend/src/hardware/printer/`:
 
 - **`receipt.ts`**: o cupom como lista de blocos: texto (alinhamento, negrito, tamanho), duas colunas (esquerda/direita), linha separadora, espaço em branco e corte. QR Code e código de barras são blocos que entram no sub-projeto C.
 - **`orderReceipt.ts`**: função pura `buildOrderReceipt(order, config)`; o layout do cupom do pedido.
-- **`renderHtml.ts`**: `renderReceiptHtml(receipt, { widthMm })` gera um documento HTML/CSS completo com `@page { size: <largura> auto; margin: 0 }`, preto no branco e colunas por flexbox (o alinhamento não depende da largura das letras).
+- **`renderHtml.ts`**: `renderReceiptHtml(receipt, { widthMm })` gera um documento HTML/CSS completo com `@page { margin: 0 }` (o tamanho do papel vem do driver; `size: <largura> auto` é CSS inválido e o navegador o descarta), preto no branco e colunas por flexbox (o alinhamento não depende da largura das letras).
 - **`print.ts`**: `printHtml(html)` usa um iframe oculto na própria página e `window.print()`; limpa o iframe depois.
 - **`stores/printer.ts`**: configuração por caixa (largura, imprimir ao confirmar, cabeçalho e rodapé).
 - **Aba "Impressora" em Configurações**: campos do cabeçalho e rodapé, largura, imprimir ao confirmar e o botão **Imprimir teste**.

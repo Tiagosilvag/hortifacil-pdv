@@ -42,7 +42,7 @@ export function renderReceiptHtml(receipt: Receipt, { widthMm }: RenderOptions):
   const padding = SIDE_PADDING_MM[widthMm]
   const font = FONT_PX[widthMm]
   const css = `
-@page { size: ${widthMm}mm auto; margin: 0; }
+@page { margin: 0; }
 html, body { margin: 0; padding: 0; background: #fff; color: #000; }
 body { width: ${widthMm}mm; padding: 0 ${padding}mm; box-sizing: border-box; font: ${font}px/1.35 Consolas, 'Courier New', monospace; }
 body::after { content: ''; display: block; height: 8mm; }

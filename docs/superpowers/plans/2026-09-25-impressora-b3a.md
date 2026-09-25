@@ -436,13 +436,12 @@ describe('renderReceiptHtml', () => {
     expect(html).toContain('&quot;y&quot;')
   })
 
-  it('a página tem a largura da bobina escolhida, sem margem, e é sempre preto no branco', () => {
+  it('o cupom tem a largura da bobina escolhida (o papel vem do driver), a página sem margem, e é sempre preto no branco', () => {
     const at80 = render({ blocks: [] }, 80)
-    expect(at80).toContain('@page { size: 80mm auto; margin: 0; }')
+    expect(at80).toContain('@page { margin: 0; }')
     expect(at80).toContain('width: 80mm')
     const at58 = render({ blocks: [] }, 58)
-    expect(at58).toContain('@page { size: 58mm auto; margin: 0; }')
-    expect(at58).toContain('width: 58mm')
+        expect(at58).toContain('width: 58mm')
     expect(at80).toContain('background: #fff')
     expect(at80).toContain('color: #000')
   })
@@ -562,7 +561,7 @@ export function renderReceiptHtml(receipt: Receipt, { widthMm }: RenderOptions):
   const padding = SIDE_PADDING_MM[widthMm]
   const font = FONT_PX[widthMm]
   const css = `
-@page { size: ${widthMm}mm auto; margin: 0; }
+@page { margin: 0; }
 html, body { margin: 0; padding: 0; background: #fff; color: #000; }
 body { width: ${widthMm}mm; padding: 0 ${padding}mm; box-sizing: border-box; font: ${font}px/1.35 Consolas, 'Courier New', monospace; }
 body::after { content: ''; display: block; height: 8mm; }
@@ -617,6 +616,8 @@ export function printHtml(html: string): void {
 
   frame.onload = () => {
     const win = frame.contentWindow
+    // Sem isto, um `load` do about:blank inicial imprimiria uma página em branco antes do cupom.
+    if (win && win.location.href === 'about:blank') return
     if (!win) {
       cleanup()
       return
@@ -626,8 +627,9 @@ export function printHtml(html: string): void {
     win.print()
     setTimeout(cleanup, CLEANUP_MS) // se o navegador não avisar o fim da impressão
   }
-  document.body.appendChild(frame)
+  // srcdoc antes de entrar na página: no Chromium, um iframe sem src dispara `load` (do about:blank) ao ser inserido.
   frame.srcdoc = html
+  document.body.appendChild(frame)
 }
 ```
 
@@ -930,7 +932,7 @@ Object.defineProperty(HTMLIFrameElement.prototype, 'srcdoc', { configurable: tru
 ```
 
 1. Configurações > aba **Impressora** aparece ao lado de "Balança". Preencha nome, endereço, telefone; escolha 58 mm e volte para 80 mm.
-2. Clique em **Imprimir teste**. `window.__printed.length` deve ser `1` e o HTML conter `TESTE DE IMPRESSÃO`, `Largura configurada: 80 mm`, o nome que você digitou e `@page { size: 80mm auto; margin: 0; }`.
+2. Clique em **Imprimir teste**. `window.__printed.length` deve ser `1` e o HTML conter `TESTE DE IMPRESSÃO`, `Largura configurada: 80 mm`, o nome que você digitou e `@page { margin: 0; }` (a largura do papel vem do driver).
 3. Recarregue a página: os campos preenchidos continuam (a configuração persistiu em `pdv-printer`).
 4. Veja o cupom: `const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;top:10px;right:10px;width:340px;height:560px;background:#fff;z-index:9999'; f.setAttribute('srcdoc-view', ''); document.body.appendChild(f); f.contentDocument.open(); f.contentDocument.write(window.__printed[0]); f.contentDocument.close()`. A régua `1234567890…` deve caber na largura sem cortar, os acentos devem sair certos e o nome longo deve quebrar em linhas.
 
