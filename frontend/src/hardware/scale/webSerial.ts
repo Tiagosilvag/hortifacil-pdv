@@ -36,6 +36,39 @@ export function getBrowserSerial(): SerialLike | null {
   return serial ?? null
 }
 
+/** Erros de leitura que a Web Serial API trata como recuperáveis: o `port.readable` é trocado e dá para continuar. */
+const RECOVERABLE_READ_ERRORS = new Set(['FramingError', 'ParityError', 'BreakError', 'BufferOverrunError'])
+
+/**
+ * Operações de abrir e fechar a mesma porta rodam uma de cada vez, mesmo vindas de transportes diferentes
+ * (o StrictMode do React, ou trocar de modelo no meio da conexão, criam um transporte novo enquanto o antigo ainda abre).
+ */
+const portQueue = new WeakMap<object, Promise<unknown>>()
+
+function queued<T>(port: object, task: () => Promise<T>): Promise<T> {
+  const tail = portQueue.get(port) ?? Promise.resolve()
+  const run = tail.then(task)
+  portQueue.set(port, run.catch(() => undefined))
+  return run
+}
+
+/** Abre a porta. Se a tentativa ficou obsoleta enquanto abria (alguém chamou disconnect), fecha de volta e devolve false. */
+function openPort(port: SerialPortLike, settings: SerialSettings, isStale: () => boolean): Promise<boolean> {
+  return queued(port, async () => {
+    const { baudRate, dataBits, stopBits, parity } = settings
+    await port.open({ baudRate, dataBits, stopBits, parity })
+    if (isStale()) {
+      try {
+        await port.close()
+      } catch {
+        // já fechada
+      }
+      return false
+    }
+    return true
+  })
+}
+
 export interface WebSerialOptions {
   serial: SerialLike
   settings: SerialSettings
@@ -62,7 +95,10 @@ export class WebSerialTransport implements ScaleTransport {
   private port: SerialPortLike | null = null
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null
   private loop: Promise<void> = Promise.resolve()
+  private opening: Promise<void> | null = null
+  private openingGeneration = -1
   private wanted = false
+  /** Muda a cada disconnect e a cada porta aberta; uma tentativa de conexão com número antigo é obsoleta. */
   private generation = 0
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private parser: FrameParser | null = null
@@ -82,7 +118,22 @@ export class WebSerialTransport implements ScaleTransport {
 
   async connect(interactive = false): Promise<void> {
     this.wanted = true
-    await this.open(interactive)
+    if (this.port) return
+    // Mesma tentativa ainda válida (connect duplo): reaproveita.
+    if (this.opening && this.openingGeneration === this.generation) return this.opening
+
+    // Tentativa anterior obsoleta (houve disconnect): a nova espera ela terminar de fechar a porta.
+    const previous = this.opening
+    this.openingGeneration = this.generation
+    const attempt: Promise<void> = (async () => {
+      await previous?.catch(() => undefined)
+      if (!this.wanted || this.port) return
+      await this.open(interactive)
+    })().finally(() => {
+      if (this.opening === attempt) this.opening = null
+    })
+    this.opening = attempt
+    return attempt
   }
 
   async disconnect(): Promise<void> {
@@ -109,7 +160,7 @@ export class WebSerialTransport implements ScaleTransport {
   }
 
   private onPortConnect = (): void => {
-    if (this.wanted && !this.port) void this.open(false)
+    if (this.wanted && !this.port) void this.connect(false)
   }
 
   private async pickPort(interactive: boolean): Promise<SerialPortLike | null> {
@@ -131,16 +182,18 @@ export class WebSerialTransport implements ScaleTransport {
   }
 
   private async open(interactive: boolean): Promise<void> {
-    if (this.port) return
+    const token = this.generation
+    const isStale = () => token !== this.generation || !this.wanted
     this.emitStatus('connecting')
     try {
       const port = await this.pickPort(interactive)
+      if (isStale()) return
       if (!port) {
         this.emitStatus('disconnected', interactive ? 'Nenhuma porta selecionada.' : undefined)
         return
       }
-      const { baudRate, dataBits, stopBits, parity } = this.options.settings
-      await port.open({ baudRate, dataBits, stopBits, parity })
+      if (!(await openPort(port, this.options.settings, isStale))) return
+      // Sem nenhum await daqui até o laço de leitura: a tentativa não fica obsoleta no meio.
       this.port = port
       this.parser = this.options.driver?.createParser() ?? null
       this.stability.reset()
@@ -150,27 +203,37 @@ export class WebSerialTransport implements ScaleTransport {
       this.loop = this.readLoop(port, generation)
       this.startPolling(generation)
     } catch (error) {
-      this.port = null
+      if (isStale()) return
       this.emitStatus('error', friendlyError(error))
     }
   }
 
   private async readLoop(port: SerialPortLike, generation: number): Promise<void> {
-    const readable = port.readable
-    if (!readable) return
-    const reader = readable.getReader()
-    this.reader = reader
-    try {
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        if (value && value.length > 0) this.handleBytes(value)
+    let keepReading = true
+    while (keepReading) {
+      keepReading = false
+      const readable = port.readable
+      if (!readable) break
+      const reader = readable.getReader()
+      this.reader = reader
+      let failure: unknown = null
+      try {
+        for (;;) {
+          const { value, done } = await reader.read()
+          if (done) break
+          if (value && value.length > 0) this.handleBytes(value)
+        }
+      } catch (error) {
+        failure = error
+      } finally {
+        reader.releaseLock()
+        if (this.reader === reader) this.reader = null
       }
-    } catch {
-      // cabo removido no meio da leitura: tratado abaixo
-    } finally {
-      reader.releaseLock()
-      if (this.reader === reader) this.reader = null
+      const name = (failure as { name?: string } | null)?.name
+      if (name && RECOVERABLE_READ_ERRORS.has(name) && generation === this.generation && this.wanted && port.readable) {
+        this.emit({ type: 'read-error', name })
+        keepReading = true // ruído na linha: a porta ganhou um fluxo novo, dá para continuar
+      }
     }
     if (generation === this.generation && this.wanted) {
       await this.closePort(true) // não espera por si mesmo: este laço é o que está fechando a porta
@@ -215,7 +278,7 @@ export class WebSerialTransport implements ScaleTransport {
       await this.loop
     }
     try {
-      await port.close()
+      await queued(port, () => port.close())
     } catch {
       // porta já removida
     }

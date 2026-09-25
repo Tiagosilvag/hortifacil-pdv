@@ -167,6 +167,105 @@ describe('WebSerialTransport', () => {
     expect((last as { message?: string }).message).toContain('em uso')
   })
 
+  it('disconnect() durante a conexão cancela a tentativa e fecha a porta que acabou de abrir', async () => {
+    const port = new FakePort(undefined, { openDelayMs: 30, strict: true })
+    const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver: testDriver() })
+    const seen = collect(transport)
+
+    const attempt = transport.connect(false)
+    await flush() // a porta foi escolhida e o open() está em andamento
+    await transport.disconnect()
+    await attempt
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    expect(seen.statuses().at(-1)).toBe('disconnected')
+    expect(seen.statuses()).not.toContain('connected')
+    expect(port.state).toBe('closed')
+  })
+
+  it('dois connect() ao mesmo tempo abrem a porta uma vez, sem erro, e o disconnect() fecha', async () => {
+    const port = new FakePort(undefined, { openDelayMs: 20, strict: true })
+    const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver: testDriver() })
+    const seen = collect(transport)
+
+    await Promise.all([transport.connect(false), transport.connect(false)])
+
+    expect(port.opened).toBe(1)
+    expect(seen.statuses()).not.toContain('error')
+    expect(seen.statuses().at(-1)).toBe('connected')
+    await transport.disconnect()
+    expect(port.closed).toBe(1)
+    expect(port.state).toBe('closed')
+  })
+
+  it('disconnect() e connect() em seguida, no mesmo transporte: a segunda tentativa vale', async () => {
+    const port = new FakePort(undefined, { openDelayMs: 30, strict: true })
+    const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver: testDriver() })
+    const seen = collect(transport)
+
+    void transport.connect(false)
+    await flush()
+    await transport.disconnect()
+    await transport.connect(false)
+
+    expect(seen.statuses().at(-1)).toBe('connected')
+    expect(seen.statuses()).not.toContain('error')
+    expect(port.state).toBe('open')
+    await transport.disconnect()
+  })
+
+  it('trocar de transporte com a abertura em andamento (StrictMode): o novo espera o antigo e conecta', async () => {
+    const port = new FakePort(undefined, { openDelayMs: 30, strict: true })
+    const serial = new FakeSerial([port])
+    const first = new WebSerialTransport({ serial, settings, driver: testDriver() })
+    const second = new WebSerialTransport({ serial, settings, driver: testDriver() })
+
+    void first.connect(false)
+    await flush()
+    await first.disconnect()
+    first.dispose()
+
+    const seen = collect(second)
+    await second.connect(false)
+
+    expect(seen.statuses()).not.toContain('error')
+    expect(seen.statuses().at(-1)).toBe('connected')
+    expect(port.state).toBe('open')
+    await second.disconnect()
+  })
+
+  it('erro de leitura recuperável (ruído na linha) não derruba a conexão: avisa e segue lendo', async () => {
+    const port = new FakePort()
+    const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver: testDriver() })
+    const seen = collect(transport)
+    await transport.connect(false)
+    port.push('1.000;S\n')
+    await flush()
+
+    port.recoverableError('FramingError')
+    await flush()
+    port.push('2.000;S\n')
+    await flush()
+
+    expect(seen.readings()).toEqual([1, 2])
+    expect(seen.statuses().at(-1)).toBe('connected')
+    expect(seen.events).toContainEqual({ type: 'read-error', name: 'FramingError' })
+    await transport.disconnect()
+  })
+
+  it('erro de leitura fatal (dispositivo removido) vira "desconectada"', async () => {
+    const port = new FakePort()
+    const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver: testDriver() })
+    const seen = collect(transport)
+    await transport.connect(false)
+
+    port.fatalError('NetworkError')
+    await flush()
+
+    expect(seen.statuses().at(-1)).toBe('disconnected')
+    expect(seen.events).toContainEqual({ type: 'status', status: 'disconnected', message: 'Balança desconectada.' })
+  })
+
   it('dispose() solta o listener de conexão da porta', () => {
     const serial = new FakeSerial([])
     const transport = new WebSerialTransport({ serial, settings, driver: null })

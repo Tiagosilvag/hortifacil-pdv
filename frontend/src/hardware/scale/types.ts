@@ -20,6 +20,8 @@ export type TransportEvent =
   | { type: 'reading'; reading: ScaleReading }
   | { type: 'raw'; chunk: RawChunk }
   | { type: 'discarded'; count: number }
+  /** Erro de leitura recuperável da porta (ruído, velocidade errada); a leitura continua. */
+  | { type: 'read-error'; name: string }
 
 export type TransportListener = (event: TransportEvent) => void
 
