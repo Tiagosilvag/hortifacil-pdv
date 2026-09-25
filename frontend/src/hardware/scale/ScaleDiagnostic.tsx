@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { formatRawLine, parseHex, toHex } from './format'
+import { appendLog, formatRawLine, parseHex, toHex } from './format'
 import { BAUD_RATES, SERIAL_PRESETS } from './models'
 import type { ScaleStatus, SerialSettings } from './types'
 import { getBrowserSerial, WebSerialTransport } from './webSerial'
 
-const MAX_LINES = 200
 const selectClass =
   'w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100'
 
@@ -27,13 +26,30 @@ export function ScaleDiagnostic({ disabled }: { disabled: boolean }) {
   const [status, setStatus] = useState<ScaleStatus>('disconnected')
   const [message, setMessage] = useState<string | null>(null)
   const [lines, setLines] = useState<string[]>([])
+  const [dropped, setDropped] = useState(0)
+  const linesRef = useRef<string[]>([])
+  const droppedRef = useRef(0)
   const [totalBytes, setTotalBytes] = useState(0)
   const [hexInput, setHexInput] = useState('')
   const [hexError, setHexError] = useState(false)
   const [copied, setCopied] = useState(false)
   const transportRef = useRef<WebSerialTransport | null>(null)
 
-  const addLine = (line: string) => setLines((prev) => [...prev, line].slice(-MAX_LINES))
+  const addLine = (line: string) => {
+    const next = appendLog(linesRef.current, line)
+    linesRef.current = next.lines
+    droppedRef.current += next.dropped
+    setLines(next.lines)
+    setDropped(droppedRef.current)
+  }
+
+  const clearLog = () => {
+    linesRef.current = []
+    droppedRef.current = 0
+    setLines([])
+    setDropped(0)
+    setTotalBytes(0)
+  }
 
   useEffect(() => {
     return () => {
@@ -67,6 +83,8 @@ export function ScaleDiagnostic({ disabled }: { disabled: boolean }) {
       } else if (event.type === 'raw') {
         setTotalBytes((n) => n + event.chunk.bytes.length)
         addLine(formatRawLine(event.chunk))
+      } else if (event.type === 'read-error') {
+        addLine(`${new Date().toLocaleTimeString('pt-BR')}  !! erro de leitura (${event.name}): velocidade ou paridade provavelmente erradas`)
       }
     })
     await transport.connect(true)
@@ -88,7 +106,8 @@ export function ScaleDiagnostic({ disabled }: { disabled: boolean }) {
   }
 
   const copyLog = async () => {
-    await navigator.clipboard.writeText(lines.join('\n'))
+    const header = dropped > 0 ? `[log truncado: ${dropped} linhas mais antigas descartadas]\n` : ''
+    await navigator.clipboard.writeText(header + lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -158,7 +177,7 @@ export function ScaleDiagnostic({ disabled }: { disabled: boolean }) {
         ) : (
           <Button size="sm" onClick={() => void connect()} disabled={disabled}>Conectar e escutar</Button>
         )}
-        <Button size="sm" variant="ghost" onClick={() => { setLines([]); setTotalBytes(0) }}>Limpar</Button>
+        <Button size="sm" variant="ghost" onClick={clearLog}>Limpar</Button>
         <Button size="sm" variant="ghost" onClick={() => void copyLog()} disabled={lines.length === 0}>
           {copied ? 'Copiado!' : 'Copiar log'}
         </Button>
@@ -180,6 +199,12 @@ export function ScaleDiagnostic({ disabled }: { disabled: boolean }) {
         </div>
         <Button size="sm" variant="secondary" onClick={() => void send()} disabled={status !== 'connected'}>Enviar</Button>
       </div>
+
+      {dropped > 0 && (
+        <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+          Log truncado: {dropped} linhas mais antigas foram descartadas. Copie o log com mais frequência.
+        </p>
+      )}
 
       <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-slate-900 p-3 font-mono text-xs leading-relaxed text-green-300">
         {lines.length === 0 ? 'Nenhum dado recebido ainda.' : lines.join('\n')}

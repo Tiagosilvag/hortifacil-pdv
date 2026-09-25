@@ -25,7 +25,8 @@ Na Toledo, o guia de um fornecedor manda entrar no menu da balança (tecla Modo,
    5. Use a **tara** com um recipiente vazio; depois coloque um peso dentro dele.
    6. Deixe o peso **oscilando**: apoie a mão no prato e mexa por 5 segundos.
    7. Aperte na balança as teclas de **imprimir** e de **total**, se existirem, e anote o que muda no log.
-5. **Se nada chegar em 10 segundos**, desconecte e tente, um por vez: outra velocidade (2400, 4800 ou 9600), 7 bits de dados, paridade par. Anote qual combinação fez chegar dados. Depois tente **enviar um comando**: é uma **tentativa**, não um fato; alguns protocolos respondem a um byte de solicitação, por exemplo `05`. Anote se a balança respondeu.
+5. **Se aparecer no log "erro de leitura (FramingError...)" ou os bytes vierem como lixo**, a velocidade, os bits de dados ou a paridade estão errados: a conexão continua aberta, então desconecte e tente a próxima combinação. Se o log ficar muito longo, aparece o aviso "Log truncado": copie o log com mais frequência.
+6. **Se nada chegar em 10 segundos**, desconecte e tente, um por vez: outra velocidade (2400, 4800 ou 9600), 7 bits de dados, paridade par. Anote qual combinação fez chegar dados. Depois tente **enviar um comando**: é uma **tentativa**, não um fato; alguns protocolos respondem a um byte de solicitação, por exemplo `05`. Anote se a balança respondeu.
 
 ## O que me enviar de cada balança
 

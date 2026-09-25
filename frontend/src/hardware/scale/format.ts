@@ -35,3 +35,13 @@ function clock(at: number): string {
 export function formatRawLine(chunk: RawChunk): string {
   return `${clock(chunk.at)}  ${toHex(chunk.bytes)}  |${toAscii(chunk.bytes)}|`
 }
+
+/** Limite do log do diagnóstico: uma captura de 10 s a 2400 bps passa de mil linhas. */
+export const LOG_MAX_LINES = 5000
+
+/** Acrescenta uma linha ao log; passando do limite, descarta as mais antigas e informa quantas (nunca em silêncio). */
+export function appendLog(lines: string[], line: string, max: number = LOG_MAX_LINES): { lines: string[]; dropped: number } {
+  const next = [...lines, line]
+  const dropped = Math.max(0, next.length - max)
+  return { lines: dropped > 0 ? next.slice(dropped) : next, dropped }
+}

@@ -17,3 +17,10 @@ export function addItem<T extends CartLine>(cart: T[], product: Product, amount 
   }
   return [...cart, { product, qty: amount }]
 }
+
+/** Muda a quantidade de um item por `delta` (botões + e -). Arredonda a gramas e remove o item quando chega a zero. */
+export function changeQty<T extends CartLine>(cart: T[], productId: string, delta: number): T[] {
+  return cart
+    .map((line) => (line.product.id === productId ? { ...line, qty: roundKg(line.qty + delta) } : line))
+    .filter((line) => line.qty > 0)
+}

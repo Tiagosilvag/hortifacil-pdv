@@ -20,7 +20,8 @@ import { Badge } from '@/components/ui/Badge'
 import { captureFailureMessage } from '@/hardware/scale/reading'
 import { ScaleIndicator } from '@/hardware/scale/ScaleIndicator'
 import { useScale } from '@/hardware/scale/useScale'
-import { addItem } from './cart'
+import { SingleFlight } from '@/hardware/scale/singleFlight'
+import { addItem, changeQty } from './cart'
 import type { Customer, Product } from '@/types'
 
 interface CartItem {
@@ -62,6 +63,8 @@ export default function NewOrder() {
   const [lastOrder, setLastOrder] = useState<{ number: number; total: number } | null>(null)
   const scale = useScale()
   const [scaleNotice, setScaleNotice] = useState('')
+  const [capturing, setCapturing] = useState(false)
+  const flight = useRef(new SingleFlight()).current
 
   useEffect(() => {
     if (!scaleNotice) return
@@ -106,6 +109,20 @@ export default function NewOrder() {
     setShowProductDrop(false)
   }
 
+  // Uma pesagem por vez: enquanto uma espera o peso estabilizar, novos cliques são ignorados
+  // (senão o mesmo peso seria somado duas vezes, ou atribuído ao produto errado).
+  const captureWeight = async () => {
+    const run = await flight.run(async () => {
+      setCapturing(true)
+      try {
+        return await scale.captureStable()
+      } finally {
+        setCapturing(false)
+      }
+    })
+    return run.ran ? run.value : null
+  }
+
   // Produto em kg com a balança conectada: a quantidade é o peso estável. Sem balança, segue como sempre.
   const addProduct = async (product: Product) => {
     if (product.unit_type !== 'kg' || !scale.available) {
@@ -113,7 +130,8 @@ export default function NewOrder() {
       addToCart(product)
       return
     }
-    const result = await scale.captureStable()
+    const result = await captureWeight()
+    if (result === null) return // já há uma pesagem em andamento
     if (!result.ok) {
       setScaleNotice(captureFailureMessage(result.reason))
       return
@@ -124,7 +142,8 @@ export default function NewOrder() {
 
   // Botão "Pesar" do carrinho: relê a balança e substitui a quantidade do item.
   const weighItem = async (productId: string) => {
-    const result = await scale.captureStable()
+    const result = await captureWeight()
+    if (result === null) return
     if (!result.ok) {
       setScaleNotice(captureFailureMessage(result.reason))
       return
@@ -134,11 +153,7 @@ export default function NewOrder() {
   }
 
   const updateQty = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((i) => i.product.id === productId ? { ...i, qty: i.qty + delta } : i)
-        .filter((i) => i.qty > 0)
-    )
+    setCart((prev) => changeQty(prev, productId, delta))
   }
 
   const setQty = (productId: string, qty: number) => {
@@ -310,6 +325,11 @@ export default function NewOrder() {
           </div>
 
           <ScaleIndicator />
+          {capturing && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              Aguardando o peso estabilizar...
+            </div>
+          )}
           {scaleNotice && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
               {scaleNotice}
@@ -367,7 +387,7 @@ export default function NewOrder() {
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
                   Itens <span className="text-slate-400 dark:text-slate-500 font-normal">({cart.length})</span>
                 </p>
-                <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} onWeigh={weighItem} weighEnabled={scale.available} />
+                <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} onWeigh={weighItem} weighEnabled={scale.available && !capturing} />
               </div>
             )}
           </div>

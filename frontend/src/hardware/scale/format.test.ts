@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRawLine, parseHex, toAscii, toHex } from './format'
+import { appendLog, formatRawLine, parseHex, toAscii, toHex } from './format'
 import { getModel, isModelUsable, selectableModels } from './models'
 
 const bytes = (...values: number[]) => new Uint8Array(values)
@@ -52,5 +52,33 @@ describe('modelos', () => {
 
   it('getModel devolve null para id desconhecido ou nulo', () => {
     expect(getModel(null)).toBeNull()
+  })
+})
+
+describe('appendLog', () => {
+  it('acrescenta enquanto cabe, sem descartar nada', () => {
+    expect(appendLog(['a', 'b'], 'c', 5)).toEqual({ lines: ['a', 'b', 'c'], dropped: 0 })
+  })
+
+  it('passando do limite descarta as mais antigas e informa quantas', () => {
+    expect(appendLog(['a', 'b', 'c'], 'd', 3)).toEqual({ lines: ['b', 'c', 'd'], dropped: 1 })
+  })
+
+  it('não altera a lista original', () => {
+    const original = ['a', 'b']
+    appendLog(original, 'c', 2)
+    expect(original).toEqual(['a', 'b'])
+  })
+
+  it('o limite padrão comporta uma captura longa (milhares de linhas)', () => {
+    let lines: string[] = []
+    let dropped = 0
+    for (let i = 0; i < 3000; i += 1) {
+      const next = appendLog(lines, `linha ${i}`)
+      lines = next.lines
+      dropped += next.dropped
+    }
+    expect(dropped).toBe(0)
+    expect(lines).toHaveLength(3000)
   })
 })

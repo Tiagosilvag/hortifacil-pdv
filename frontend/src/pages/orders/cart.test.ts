@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Product } from '@/types'
-import { addItem, type CartLine } from './cart'
+import { addItem, changeQty, type CartLine } from './cart'
 
 const product = (id: string, unit_type: Product['unit_type'] = 'kg'): Product =>
   ({ id, code: 1, name: `Produto ${id}`, barcode: null, unit_type, price: 10, category: null, stock: 0,
@@ -34,5 +34,27 @@ describe('addItem', () => {
     const next = addItem(original, product('a'), 1)
     expect(original).toEqual(snapshot)
     expect(next[1]).toBe(original[1])
+  })
+})
+
+describe('changeQty', () => {
+  const line = (id: string, qty: number): CartLine => ({ product: product(id), qty })
+
+  it('os botões +/- de um item pesado não geram lixo de ponto flutuante', () => {
+    expect(1.235 - 1).not.toBe(0.235) // o problema que o arredondamento resolve
+    expect(changeQty([line('a', 1.235)], 'a', -1)[0].qty).toBe(0.235)
+    expect(changeQty([line('a', 1.235)], 'a', 1)[0].qty).toBe(2.235)
+  })
+
+  it('remove o item quando a quantidade chega a zero ou menos', () => {
+    expect(changeQty([line('a', 1), line('b', 2)], 'a', -1).map((l) => l.product.id)).toEqual(['b'])
+    expect(changeQty([line('a', 0.5)], 'a', -1)).toEqual([])
+  })
+
+  it('não mexe nos outros itens nem em produto que não está no carrinho', () => {
+    const cart = [line('a', 1), line('b', 2)]
+    const next = changeQty(cart, 'x', 1)
+    expect(next).toEqual(cart)
+    expect(changeQty(cart, 'a', 1)[1]).toBe(cart[1])
   })
 })
