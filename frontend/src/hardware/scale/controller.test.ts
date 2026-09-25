@@ -14,7 +14,7 @@ function setup() {
 describe('ScaleController', () => {
   it('começa desconectada e sem leitura', () => {
     const { controller } = setup()
-    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: null, reading: null })
+    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: null, reading: null, stale: false })
   })
 
   it('conecta, recebe o peso e devolve o peso estável', async () => {
@@ -55,7 +55,7 @@ describe('ScaleController', () => {
     await controller.connect()
     fake.setWeight(1)
     await controller.disconnect()
-    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: null, reading: null })
+    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: null, reading: null, stale: false })
     expect(await controller.captureStable()).toEqual({ ok: false, reason: 'no-reading' })
   })
 
@@ -84,7 +84,7 @@ describe('ScaleController', () => {
     await controller.connect()
     const other = new FakeScaleTransport(50)
     controller.setTransport(other, 'disconnected', 'Outro modelo')
-    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: 'Outro modelo', reading: null })
+    expect(controller.getSnapshot()).toEqual({ status: 'disconnected', message: 'Outro modelo', reading: null, stale: false })
     fake.setWeight(9)
     expect(controller.getSnapshot().reading).toBeNull()
   })
@@ -92,7 +92,7 @@ describe('ScaleController', () => {
   it('sem transporte, mantém o estado informado (ex.: navegador sem suporte)', () => {
     const controller = new ScaleController()
     controller.setTransport(null, 'unsupported', 'Use Chrome ou Edge')
-    expect(controller.getSnapshot()).toEqual({ status: 'unsupported', message: 'Use Chrome ou Edge', reading: null })
+    expect(controller.getSnapshot()).toEqual({ status: 'unsupported', message: 'Use Chrome ou Edge', reading: null, stale: false })
   })
 
   it('repassa os eventos crus para a área de diagnóstico', async () => {

@@ -15,6 +15,9 @@ export function ScaleIndicator() {
   let tone: 'ok' | 'warn' | 'muted' = 'muted'
   if (!scale.enabled) {
     text = 'Balança desligada. Digite a quantidade dos itens em kg.'
+  } else if (scale.status === 'connected' && scale.stale) {
+    text = 'Balança sem sinal. Confira o cabo. Digite a quantidade dos itens em kg.'
+    tone = 'warn'
   } else if (scale.status === 'connected') {
     const reading = scale.reading
     text = reading

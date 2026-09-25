@@ -12,8 +12,8 @@ export function useScale() {
     ...snapshot,
     modelId,
     enabled,
-    /** true = o peso da balança pode ser usado na venda agora. */
-    available: enabled && modelId !== null && snapshot.status === 'connected',
+    /** true = o peso da balança pode ser usado na venda agora (conectada e mandando dados). */
+    available: enabled && modelId !== null && snapshot.status === 'connected' && !snapshot.stale,
     /** Só chamar a partir de um clique do operador (a primeira autorização da porta exige isso). */
     connect: () => scaleController.connect(true),
     disconnect: () => scaleController.disconnect(),
