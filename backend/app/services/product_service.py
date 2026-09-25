@@ -63,9 +63,17 @@ async def get_product_by_barcode(db: AsyncSession, barcode: str) -> Product | No
     result = await db.execute(
         select(Product).where(Product.barcode == barcode, Product.is_active == True)
     )
-    product = result.scalar_one_or_none()
-    if product:
-        product.has_orders = await _product_has_orders(db, product.id)  # type: ignore[attr-defined]
+    products = result.scalars().all()
+    if len(products) > 1:
+        # O banco não impede código de barras repetido. Escolher um produto ao acaso cobraria o item errado.
+        raise HTTPException(
+            status_code=409,
+            detail="Código de barras repetido em mais de um produto. Procure pelo nome.",
+        )
+    if not products:
+        return None
+    product = products[0]
+    product.has_orders = await _product_has_orders(db, product.id)  # type: ignore[attr-defined]
     return product
 
 
