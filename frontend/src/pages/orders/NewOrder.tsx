@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
@@ -17,6 +17,10 @@ import { getApiError } from '@/api/client'
 import { formatCurrency, formatUnit } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { captureFailureMessage } from '@/hardware/scale/reading'
+import { ScaleIndicator } from '@/hardware/scale/ScaleIndicator'
+import { useScale } from '@/hardware/scale/useScale'
+import { addItem } from './cart'
 import type { Customer, Product } from '@/types'
 
 interface CartItem {
@@ -56,6 +60,14 @@ export default function NewOrder() {
   const [apiError, setApiError] = useState('')
   const [success, setSuccess] = useState(false)
   const [lastOrder, setLastOrder] = useState<{ number: number; total: number } | null>(null)
+  const scale = useScale()
+  const [scaleNotice, setScaleNotice] = useState('')
+
+  useEffect(() => {
+    if (!scaleNotice) return
+    const timer = setTimeout(() => setScaleNotice(''), 5000)
+    return () => clearTimeout(timer)
+  }, [scaleNotice])
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers-search', customerSearch],
@@ -88,14 +100,37 @@ export default function NewOrder() {
   const exceedsCredit =
     hasInstallment && creditAvailable !== null && installmentAmount > creditAvailable
 
-  const addToCart = (product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id)
-      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
-      return [...prev, { product, qty: 1 }]
-    })
+  const addToCart = (product: Product, amount = 1) => {
+    setCart((prev) => addItem(prev, product, amount))
     setProductSearch('')
     setShowProductDrop(false)
+  }
+
+  // Produto em kg com a balança conectada: a quantidade é o peso estável. Sem balança, segue como sempre.
+  const addProduct = async (product: Product) => {
+    if (product.unit_type !== 'kg' || !scale.available) {
+      setScaleNotice('')
+      addToCart(product)
+      return
+    }
+    const result = await scale.captureStable()
+    if (!result.ok) {
+      setScaleNotice(captureFailureMessage(result.reason))
+      return
+    }
+    setScaleNotice('')
+    addToCart(product, result.weightKg)
+  }
+
+  // Botão "Pesar" do carrinho: relê a balança e substitui a quantidade do item.
+  const weighItem = async (productId: string) => {
+    const result = await scale.captureStable()
+    if (!result.ok) {
+      setScaleNotice(captureFailureMessage(result.reason))
+      return
+    }
+    setScaleNotice('')
+    setQty(productId, result.weightKg)
   }
 
   const updateQty = (productId: string, delta: number) => {
@@ -274,6 +309,13 @@ export default function NewOrder() {
             )}
           </div>
 
+          <ScaleIndicator />
+          {scaleNotice && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+              {scaleNotice}
+            </div>
+          )}
+
           {/* Product search */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Adicionar produto</p>
@@ -292,7 +334,7 @@ export default function NewOrder() {
                   {products.map((p) => (
                     <button
                       key={p.id}
-                      onMouseDown={() => addToCart(p)}
+                      onMouseDown={() => void addProduct(p)}
                       className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-600 text-left text-sm"
                     >
                       <div>
@@ -325,7 +367,7 @@ export default function NewOrder() {
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
                   Itens <span className="text-slate-400 dark:text-slate-500 font-normal">({cart.length})</span>
                 </p>
-                <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} />
+                <CartItemList cart={cart} updateQty={updateQty} setQty={setQty} removeItem={removeItem} onWeigh={weighItem} weighEnabled={scale.available} />
               </div>
             )}
           </div>
@@ -523,11 +565,15 @@ function CartItemList({
   updateQty,
   setQty,
   removeItem,
+  onWeigh,
+  weighEnabled,
 }: {
   cart: CartItem[]
   updateQty: (id: string, delta: number) => void
   setQty: (id: string, qty: number) => void
   removeItem: (id: string) => void
+  onWeigh: (id: string) => void
+  weighEnabled: boolean
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -543,6 +589,14 @@ function CartItemList({
               {product.barcode && <span className="ml-1.5 font-mono text-slate-400 dark:text-slate-500">{product.barcode}</span>}
             </p>
           </div>
+          {weighEnabled && product.unit_type === 'kg' && (
+            <button
+              onClick={() => onWeigh(product.id)}
+              className="px-2 py-0.5 text-xs font-medium rounded-lg border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+            >
+              Pesar
+            </button>
+          )}
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => updateQty(product.id, -1)}
