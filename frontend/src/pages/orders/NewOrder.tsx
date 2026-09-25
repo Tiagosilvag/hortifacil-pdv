@@ -9,6 +9,7 @@ import {
   ShoppingCartIcon,
   ExclamationTriangleIcon,
   TrashIcon,
+  PrinterIcon,
 } from '@heroicons/react/24/outline'
 import { listCustomers } from '@/api/customers'
 import { getProductByBarcode, listProducts } from '@/api/products'
@@ -22,8 +23,10 @@ import { ScaleIndicator } from '@/hardware/scale/ScaleIndicator'
 import { useScale } from '@/hardware/scale/useScale'
 import { useBarcodeScanner } from '@/hardware/scanner/useBarcodeScanner'
 import { SingleFlight } from '@/hardware/scale/singleFlight'
+import { printOrderReceipt } from '@/hardware/printer/printOrder'
+import { usePrinterSettings } from '@/stores/printer'
 import { addItem, changeQty } from './cart'
-import type { Customer, Product } from '@/types'
+import type { Customer, Order, Product } from '@/types'
 
 interface CartItem {
   product: Product
@@ -61,7 +64,7 @@ export default function NewOrder() {
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [lastOrder, setLastOrder] = useState<{ number: number; total: number } | null>(null)
+  const [lastOrder, setLastOrder] = useState<{ number: number; total: number; order: Order } | null>(null)
   const scale = useScale()
   const [scaleNotice, setScaleNotice] = useState('')
   const [capturing, setCapturing] = useState(false)
@@ -206,8 +209,11 @@ export default function NewOrder() {
   const mutation = useMutation({
     mutationFn: createOrder,
     onSuccess: (order) => {
-      setLastOrder({ number: order.order_number, total: Number(order.total) })
+      setLastOrder({ number: order.order_number, total: Number(order.total), order })
       setSuccess(true)
+      // O pedido já está salvo: imprimir nunca atrasa nem impede o registro.
+      const printer = usePrinterSettings.getState()
+      if (printer.enabled) printOrderReceipt(order, printer)
     },
     onError: (err) => setApiError(getApiError(err)),
   })
@@ -262,6 +268,14 @@ export default function NewOrder() {
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Pedido #{lastOrder.number}</h2>
           <p className="text-slate-500 dark:text-slate-400 mb-2">Registrado com sucesso!</p>
           <p className="text-3xl font-bold text-green-700 dark:text-green-400 mb-8">{formatCurrency(lastOrder.total)}</p>
+          <Button
+            variant="secondary"
+            className="w-full mb-3"
+            onClick={() => printOrderReceipt(lastOrder.order, usePrinterSettings.getState())}
+          >
+            <PrinterIcon className="w-4 h-4 mr-1.5" />
+            Imprimir cupom
+          </Button>
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
               Ver Pedidos
