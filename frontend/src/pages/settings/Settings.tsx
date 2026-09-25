@@ -20,8 +20,9 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import type { ModuleKey, User } from '@/types'
 import { formatDate } from '@/utils/format'
+import { ScaleTab } from './ScaleTab'
 
-type Tab = 'users' | 'categories'
+type Tab = 'users' | 'categories' | 'scale'
 
 interface UserFormData {
   name: string
@@ -500,9 +501,13 @@ export default function Settings() {
         <button className={tabClass('categories')} onClick={() => setActiveTab('categories')}>
           Categorias
         </button>
+        <button className={tabClass('scale')} onClick={() => setActiveTab('scale')}>
+          Balança
+        </button>
       </div>
 
       {activeTab === 'categories' && <CategoriesTab />}
+      {activeTab === 'scale' && <ScaleTab />}
 
       {activeTab === 'users' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">

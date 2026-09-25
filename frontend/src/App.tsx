@@ -15,6 +15,7 @@ import ReceivableList from '@/pages/receivables/ReceivableList'
 import Settings from '@/pages/settings/Settings'
 import SalesReport from '@/pages/reports/SalesReport'
 import LossList from '@/pages/inventory/LossList'
+import { startScaleService } from '@/hardware/scale/service'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token)
@@ -42,6 +43,9 @@ export default function App() {
       return () => mq.removeEventListener('change', handler)
     }
   }, [theme])
+
+  // Liga a balança deste caixa (a configuração fica no navegador).
+  useEffect(() => startScaleService(), [])
 
   return (
     <BrowserRouter>
