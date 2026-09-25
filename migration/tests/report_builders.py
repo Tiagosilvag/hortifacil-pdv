@@ -40,6 +40,35 @@ def row(code=None, barcode=None, desc=None, unit=None, custo=None, preco=None,
     return "".join(buf).rstrip()
 
 
+def customer_block(code, doc="", ie="", razao="", fantasia="", street="", number="", cep="",
+                   bairro="", cidade="", uf="", cel1="", fone1="", cel2="", fone2="") -> list[str]:
+    """Um bloco de 'LISTAGEM DE PESSOAS' no formato do pdftotext -layout."""
+    empty_fone, empty_cel = "( )         -", "( )                   -"
+    return [
+        f"CÓDIGO: {code}             CNPJ/CPF: {doc}        IE/RG: {ie}",
+        "",
+        f"RAZÃO: {razao}",
+        "",
+        f"FANTASIA: {fantasia}",
+        "",
+        f"ENDEREÇO {street}, {number}, CEP:{cep}",
+        "",
+        f"BAIRRO: {bairro:<35}CIDADE: {cidade}" + (f"      UF: {uf}" if uf else ""),
+        f"FONE1: {fone1 or empty_fone}          CEL1: {cel1 or empty_cel}",
+        f"FONE2: {fone2 or empty_fone}          CEL2: {cel2 or empty_cel}",
+        "",
+    ]
+
+
+def customers_page(*blocks: list[str]) -> str:
+    lines = ["GALEGO HORTIFRUTI", "", "LISTAGEM DE PESSOAS", "",
+             "TIPO:Clientes | SITUAÇÃO:Todos | ORDENADO: Código", ""]
+    for block in blocks:
+        lines.extend(block)
+    lines.append("Relatório emitido em 11/09/2026- 15:21:42     Pág.1")
+    return "\n".join(lines) + "\n"
+
+
 def page(*records: list[str], shift: int = 0, number: int = 1) -> str:
     """Uma página: cabeçalho do relatório, cabeçalho de colunas e registros separados por linha em branco."""
     lines = ["GALEGO HORTIFRUTI", "", "LISTAGEM DE PRODUTOS", "",
