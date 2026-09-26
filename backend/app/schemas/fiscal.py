@@ -156,12 +156,29 @@ class FiscalSettingsOut(BaseModel):
     updated_by_name: str | None = None
 
 
+class FiscalIssuerOut(BaseModel):
+    """Dados da empresa que saem impressos em todo cupom fiscal (públicos): o operador do caixa precisa deles para imprimir."""
+
+    model_config = {"from_attributes": True}
+
+    legal_name: str | None
+    cnpj: str | None
+    ie: str | None
+    street: str | None
+    number: str | None
+    district: str | None
+    city: str | None
+    state: str | None
+    zip_code: str | None
+
+
 class FiscalStatusOut(BaseModel):
-    """O que o PDV precisa saber para mostrar o estado da emissão: ligada, ambiente e se há provedor configurado."""
+    """O que o PDV precisa saber: emissão ligada, ambiente, se há provedor configurado e a empresa emitente (para o cupom)."""
 
     enabled: bool
     provider_configured: bool
     environment: str
+    issuer: FiscalIssuerOut | None = None
 
 
 class PendingProductOut(BaseModel):

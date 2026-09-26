@@ -8,7 +8,8 @@ from app.core.config import settings as app_settings
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.fiscal import (
-    FiscalDefaultIn, FiscalDefaultOut, FiscalSettingsIn, FiscalSettingsOut, FiscalStatusOut, PendingProductOut,
+    FiscalDefaultIn, FiscalDefaultOut, FiscalIssuerOut, FiscalSettingsIn, FiscalSettingsOut, FiscalStatusOut,
+    PendingProductOut,
 )
 from app.schemas.order import OrderOut
 from app.services import fiscal_service
@@ -29,6 +30,7 @@ async def fiscal_status(db: AsyncSession = Depends(get_db), _: User = Depends(ge
         enabled=bool(row and row.enabled) and configured,
         provider_configured=configured,
         environment=row.environment if row else "homologacao",
+        issuer=FiscalIssuerOut.model_validate(row) if row and row.cnpj else None,
     )
 
 
