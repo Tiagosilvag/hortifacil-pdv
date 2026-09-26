@@ -23,6 +23,7 @@ from app.schemas.fiscal import FiscalDefaultIn, FiscalSettingsIn
 from app.services.fiscal.payload import build_nfce_payload
 from app.services.fiscal.provider import EmitResult, FiscalProvider, get_provider
 from app.services.fiscal.rules import FISCAL_FIELDS, merge_fiscal, missing_fields
+from app.services.fiscal_golive import go_live_problems
 
 log = logging.getLogger(__name__)
 
@@ -235,7 +236,16 @@ async def get_settings(db: AsyncSession) -> FiscalSettings:
 
 async def save_settings(db: AsyncSession, data: FiscalSettingsIn, user_name: str) -> FiscalSettings:
     row = await get_settings(db)
-    for field, value in data.model_dump().items():
+    if data.environment == "producao" and row.environment != "producao":
+        problems = await go_live_problems(db, data)
+        if problems:
+            raise HTTPException(status_code=422, detail="Para ir para produção: " + "; ".join(problems) + ".")
+        row.production_confirmed_by = user_name
+        row.production_confirmed_at = datetime.now(timezone.utc)
+    elif data.environment != "producao":
+        row.production_confirmed_by = None
+        row.production_confirmed_at = None
+    for field, value in data.model_dump(exclude={"production_confirmation"}).items():
         setattr(row, field, value)
     row.updated_by_name = user_name
     await db.commit()
