@@ -1,3 +1,5 @@
+import type { FiscalFields, OrderFiscal } from './fiscal'
+
 export type UserRole = 'admin' | 'operator'
 
 export type ModuleKey = 'dashboard' | 'new_order' | 'orders' | 'receivables' | 'customers' | 'products' | 'reports' | 'inventory'
@@ -54,7 +56,7 @@ export interface Category {
 
 export type UnitType = 'unit' | 'kg' | 'gram' | 'liter' | 'box' | 'bunch'
 
-export interface Product {
+export interface Product extends Partial<FiscalFields> {
   id: string
   code: number
   name: string
@@ -100,7 +102,7 @@ export interface OrderItem {
   subtotal: number
 }
 
-export interface Order {
+export interface Order extends Partial<OrderFiscal> {
   id: string
   order_number: number
   customer_id: string | null

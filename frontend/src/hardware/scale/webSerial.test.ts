@@ -150,7 +150,10 @@ describe('WebSerialTransport', () => {
     const driver = testDriver({ pollRequest: bytes('P'), pollIntervalMs: 10 })
     const transport = new WebSerialTransport({ serial: new FakeSerial([port]), settings, driver })
     await transport.connect(false)
-    await new Promise((resolve) => setTimeout(resolve, 55))
+    // Espera os 3 pedidos (com teto de 1 s) em vez de contar com 55 ms exatos: em máquina ocupada o relógio atrasa.
+    for (let waited = 0; port.written.length < 3 && waited < 1000; waited += 10) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
     await transport.disconnect()
     expect(port.written.length).toBeGreaterThanOrEqual(3)
     expect(port.written.every((text) => text === 'P')).toBe(true)
