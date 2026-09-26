@@ -42,6 +42,11 @@ class Product(Base):
     aliquota_icms: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     cst_pis: Mapped[str | None] = mapped_column(String(2), nullable=True)
     cst_cofins: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Reforma tributária (grupo IBS/CBS, NT 2025.002): os valores vêm do contador
+    cst_ibs_cbs: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    c_class_trib: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    aliquota_ibs: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
+    aliquota_cbs: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

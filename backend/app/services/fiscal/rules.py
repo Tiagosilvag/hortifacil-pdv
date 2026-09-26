@@ -6,7 +6,10 @@ import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-FISCAL_FIELDS = ("ncm", "cest", "origem", "cfop", "cst_icms", "aliquota_icms", "cst_pis", "cst_cofins")
+FISCAL_FIELDS = (
+    "ncm", "cest", "origem", "cfop", "cst_icms", "aliquota_icms", "cst_pis", "cst_cofins",
+    "cst_ibs_cbs", "c_class_trib", "aliquota_ibs", "aliquota_cbs",
+)
 
 # CSTs de ICMS em que há imposto próprio na operação: exigem alíquota. Os demais (40, 41, 60...) não.
 CST_ICMS_WITH_TAX = frozenset({"00", "10", "20", "70", "90"})
@@ -20,6 +23,10 @@ LABELS = {
     "aliquota_icms": "Alíquota do ICMS",
     "cst_pis": "CST do PIS",
     "cst_cofins": "CST do COFINS",
+    "cst_ibs_cbs": "CST do IBS/CBS",
+    "c_class_trib": "Classificação tributária do IBS/CBS",
+    "aliquota_ibs": "Alíquota do IBS",
+    "aliquota_cbs": "Alíquota da CBS",
 }
 
 
@@ -58,6 +65,18 @@ def normalize_field(name: str, value: Any) -> Any:
         return origem
     if name in ("cst_icms", "cst_pis", "cst_cofins"):
         return _digits(value, label, 2)
+    if name == "cst_ibs_cbs":
+        return _digits(value, label, 3)
+    if name == "c_class_trib":
+        return _digits(value, label, 6)
+    if name in ("aliquota_ibs", "aliquota_cbs"):
+        try:
+            rate = Decimal(str(value).replace(",", "."))
+        except InvalidOperation:
+            raise ValueError(f"{label} inválida") from None
+        if not rate.is_finite() or not Decimal("0") <= rate <= Decimal("100"):
+            raise ValueError(f"{label} deve ficar entre 0 e 100")
+        return rate.quantize(Decimal("0.0001"))
     if name == "aliquota_icms":
         try:
             rate = Decimal(str(value))

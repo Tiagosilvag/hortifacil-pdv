@@ -66,7 +66,7 @@ COMPLETE = dict(cnpj="11222333000181", ie="123456789", legal_name="EMPRESA TESTE
 
 class TestSettingsRoutes:
     def row(self, **over):
-        base = dict(enabled=True, environment="homologacao", regime="normal", series=1, cancel_window_minutes=30,
+        base = dict(enabled=True, environment="homologacao", regime="normal", mode="none", series=1, cancel_window_minutes=30,
                     updated_at=datetime.now(timezone.utc), updated_by_name="Maria", production_confirmed_by=None,
                     production_confirmed_at=None, **COMPLETE)
         base.update(over)

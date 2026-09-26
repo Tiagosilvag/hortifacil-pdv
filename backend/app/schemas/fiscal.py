@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationInfo, field_validator, model_validator
 
+from app.core.config import settings as app_settings
 from app.services.fiscal.rules import FISCAL_FIELDS, normalize_field
 
 
@@ -20,6 +21,10 @@ class FiscalFieldsIn(BaseModel):
     aliquota_icms: Decimal | None = None
     cst_pis: str | None = None
     cst_cofins: str | None = None
+    cst_ibs_cbs: str | None = None
+    c_class_trib: str | None = None
+    aliquota_ibs: Decimal | None = None
+    aliquota_cbs: Decimal | None = None
 
     @field_validator(*FISCAL_FIELDS, mode="before")
     @classmethod
@@ -36,6 +41,10 @@ class FiscalFieldsOut(BaseModel):
     aliquota_icms: Decimal | None = None
     cst_pis: str | None = None
     cst_cofins: str | None = None
+    cst_ibs_cbs: str | None = None
+    c_class_trib: str | None = None
+    aliquota_ibs: Decimal | None = None
+    aliquota_cbs: Decimal | None = None
 
 
 class FiscalDefaultIn(FiscalFieldsIn):
@@ -70,6 +79,8 @@ class FiscalSettingsIn(BaseModel):
     enabled: bool = False
     environment: Literal["homologacao", "producao"] = "homologacao"
     regime: Literal["normal", "simples"] = "normal"
+    # "provider" entra quando existir o adaptador do provedor; "fake" só em desenvolvimento.
+    mode: Literal["none", "sefaz_direto", "fake"] = "none"
     series: int = 1
     cancel_window_minutes: int = 30
     # Só vale ao passar de homologação para produção: o administrador confirma que o contador validou o cupom.
@@ -90,6 +101,13 @@ class FiscalSettingsIn(BaseModel):
     def series_positive(cls, v: int) -> int:
         if v < 1:
             raise ValueError("Série deve ser 1 ou mais")
+        return v
+
+    @field_validator("mode")
+    @classmethod
+    def fake_only_in_development(cls, v: str) -> str:
+        if v == "fake" and app_settings.ENVIRONMENT != "development":
+            raise ValueError("O modo de teste (provedor falso) só existe em desenvolvimento")
         return v
 
     @field_validator("cancel_window_minutes")
@@ -151,6 +169,7 @@ class FiscalSettingsOut(BaseModel):
     enabled: bool
     environment: str
     regime: str
+    mode: str = "none"
     series: int
     cancel_window_minutes: int
     production_confirmed_by: str | None = None

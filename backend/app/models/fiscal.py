@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, LargeBinary, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,6 +17,8 @@ class FiscalSettings(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     environment: Mapped[str] = mapped_column(String(15), nullable=False, default="homologacao", server_default="homologacao")
     regime: Mapped[str] = mapped_column(String(10), nullable=False, default="normal", server_default="normal")
+    # Como a nota é emitida: none | sefaz_direto | fake (só em desenvolvimento). "provider" entra com o adaptador do provedor.
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="none", server_default="none")
     series: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     # Prazo para cancelar uma NFC-e depois de emitida. Varia por UF (30 min ou 24 h): confirmar com o contador.
     cancel_window_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
@@ -53,6 +55,11 @@ class FiscalDefault(Base):
     aliquota_icms: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     cst_pis: Mapped[str | None] = mapped_column(String(2), nullable=True)
     cst_cofins: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Reforma tributária (grupo IBS/CBS, NT 2025.002): os valores vêm do contador
+    cst_ibs_cbs: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    c_class_trib: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    aliquota_ibs: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
+    aliquota_cbs: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
 
 
 class FiscalEvent(Base):
@@ -73,3 +80,18 @@ class FiscalEvent(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     created_by_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class FiscalSecret(Base):
+    """Um segredo fiscal cifrado (ver app/services/fiscal/vault.py). `meta` guarda só o que NÃO é secreto (titular, vencimento...)."""
+
+    __tablename__ = "fiscal_secrets"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)  # certificate | certificate_password | csc_hml | csc_prod
+    ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    updated_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

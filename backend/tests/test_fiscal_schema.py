@@ -25,7 +25,9 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 # Colunas acrescentadas pela migration 013 (testadas em test_fiscal_c3_schema.py)
 LATER_ORDER_COLUMNS = {"fiscal_reference", "fiscal_cancelled_at", "fiscal_cancel_reason"}
-LATER_SETTINGS_COLUMNS = {"cancel_window_minutes", "production_confirmed_by", "production_confirmed_at"}
+LATER_SETTINGS_COLUMNS = {"cancel_window_minutes", "production_confirmed_by", "production_confirmed_at", "mode"}
+# Colunas de IBS/CBS acrescentadas pela migration 014 (testadas em test_fiscal_e0_schema.py)
+IBS_FIELDS = {"cst_ibs_cbs", "c_class_trib", "aliquota_ibs", "aliquota_cbs"}
 
 
 def sql_for(revisions: str, downgrade: bool = False) -> str:
@@ -102,6 +104,8 @@ class TestModelsAndMigrations:
         sql = sql_for("010:011")
         for table in ("products", "order_items"):
             for field in FISCAL_FIELDS:
+                if field in IBS_FIELDS:
+                    continue
                 assert f"ALTER TABLE {table} ADD COLUMN {field} " in sql, (table, field)
         for column in Base.metadata.tables["orders"].columns.keys():
             if column.startswith("fiscal_") and column not in LATER_ORDER_COLUMNS:
@@ -113,7 +117,7 @@ class TestModelsAndMigrations:
             assert f"CREATE TABLE {table} (" in sql, table
             body = sql.split(f"CREATE TABLE {table} (")[1].split(");")[0]
             for column in Base.metadata.tables[table].columns.keys():
-                if column in LATER_SETTINGS_COLUMNS:
+                if column in LATER_SETTINGS_COLUMNS or column in IBS_FIELDS:
                     continue
                 assert f"\n    {column} " in body, (table, column)
 
