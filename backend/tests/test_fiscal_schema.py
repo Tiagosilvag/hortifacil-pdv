@@ -23,6 +23,10 @@ from app.services.fiscal.rules import FISCAL_FIELDS  # noqa: E402
 
 BACKEND = Path(__file__).resolve().parents[1]
 
+# Colunas acrescentadas pela migration 013 (testadas em test_fiscal_c3_schema.py)
+LATER_ORDER_COLUMNS = {"fiscal_reference", "fiscal_cancelled_at", "fiscal_cancel_reason"}
+LATER_SETTINGS_COLUMNS = {"cancel_window_minutes", "production_confirmed_by", "production_confirmed_at"}
+
 
 def sql_for(revisions: str, downgrade: bool = False) -> str:
     cfg = Config(str(BACKEND / "alembic.ini"))
@@ -100,7 +104,7 @@ class TestModelsAndMigrations:
             for field in FISCAL_FIELDS:
                 assert f"ALTER TABLE {table} ADD COLUMN {field} " in sql, (table, field)
         for column in Base.metadata.tables["orders"].columns.keys():
-            if column.startswith("fiscal_"):
+            if column.startswith("fiscal_") and column not in LATER_ORDER_COLUMNS:
                 assert f"ALTER TABLE orders ADD COLUMN {column} " in sql, column
 
     def test_migration_012_cria_as_tres_tabelas_com_todas_as_colunas(self):
@@ -109,6 +113,8 @@ class TestModelsAndMigrations:
             assert f"CREATE TABLE {table} (" in sql, table
             body = sql.split(f"CREATE TABLE {table} (")[1].split(");")[0]
             for column in Base.metadata.tables[table].columns.keys():
+                if column in LATER_SETTINGS_COLUMNS:
+                    continue
                 assert f"\n    {column} " in body, (table, column)
 
     def test_downgrade_desfaz_tudo(self):

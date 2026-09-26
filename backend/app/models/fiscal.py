@@ -18,6 +18,8 @@ class FiscalSettings(Base):
     environment: Mapped[str] = mapped_column(String(15), nullable=False, default="homologacao", server_default="homologacao")
     regime: Mapped[str] = mapped_column(String(10), nullable=False, default="normal", server_default="normal")
     series: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # Prazo para cancelar uma NFC-e depois de emitida. Varia por UF (30 min ou 24 h): confirmar com o contador.
+    cancel_window_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
     cnpj: Mapped[str | None] = mapped_column(String(14), nullable=True)
     ie: Mapped[str | None] = mapped_column(String(20), nullable=True)
     legal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -32,6 +34,8 @@ class FiscalSettings(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     updated_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    production_confirmed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    production_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class FiscalDefault(Base):

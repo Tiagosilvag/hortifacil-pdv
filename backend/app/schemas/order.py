@@ -104,6 +104,8 @@ class OrderOut(BaseModel):
     fiscal_emitted_at: datetime | None = None
     fiscal_error: str | None = None
     fiscal_attempts: int = 0
+    fiscal_cancelled_at: datetime | None = None
+    fiscal_cancel_reason: str | None = None
     created_at: datetime
     created_by_name: str
     items: list[OrderItemOut]

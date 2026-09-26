@@ -71,6 +71,9 @@ class FiscalSettingsIn(BaseModel):
     environment: Literal["homologacao", "producao"] = "homologacao"
     regime: Literal["normal", "simples"] = "normal"
     series: int = 1
+    cancel_window_minutes: int = 30
+    # Só vale ao passar de homologação para produção: o administrador confirma que o contador validou o cupom.
+    production_confirmation: bool = False
     cnpj: str | None = None
     ie: str | None = None
     legal_name: str | None = None
@@ -87,6 +90,13 @@ class FiscalSettingsIn(BaseModel):
     def series_positive(cls, v: int) -> int:
         if v < 1:
             raise ValueError("Série deve ser 1 ou mais")
+        return v
+
+    @field_validator("cancel_window_minutes")
+    @classmethod
+    def cancel_window_range(cls, v: int) -> int:
+        if not 1 <= v <= 1440:
+            raise ValueError("Prazo de cancelamento deve ficar entre 1 minuto e 24 horas (1440 minutos)")
         return v
 
     @field_validator("cnpj")
@@ -142,6 +152,9 @@ class FiscalSettingsOut(BaseModel):
     environment: str
     regime: str
     series: int
+    cancel_window_minutes: int
+    production_confirmed_by: str | None = None
+    production_confirmed_at: datetime | None = None
     cnpj: str | None
     ie: str | None
     legal_name: str | None
