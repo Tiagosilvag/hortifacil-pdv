@@ -52,11 +52,25 @@ export interface FiscalDefault extends FiscalFields {
   category: string
 }
 
-/** Resposta de GET /fiscal/status: o que o PDV precisa saber para mostrar o estado da emissão. */
+/** Empresa emitente: os dados que saem impressos em todo cupom fiscal. */
+export interface FiscalIssuer {
+  legal_name: string | null
+  cnpj: string | null
+  ie: string | null
+  street: string | null
+  number: string | null
+  district: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
+}
+
+/** Resposta de GET /fiscal/status: o que o PDV precisa saber para mostrar o estado da emissão e imprimir o cupom fiscal. */
 export interface FiscalStatusInfo {
   enabled: boolean
   provider_configured: boolean
   environment: FiscalEnvironment
+  issuer: FiscalIssuer | null
 }
 
 export interface PendingProduct {

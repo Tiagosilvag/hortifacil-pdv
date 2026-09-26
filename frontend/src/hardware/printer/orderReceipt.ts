@@ -40,7 +40,7 @@ function footerBlocks(config: ReceiptConfig): ReceiptBlock[] {
   return blocks
 }
 
-function itemBlocks(item: OrderItem): ReceiptBlock[] {
+export function itemBlocks(item: OrderItem): ReceiptBlock[] {
   const code = item.product_code != null ? `${String(item.product_code).padStart(3, '0')} ` : ''
   const quantity = `${formatQty(Number(item.qty), item.unit_type)} ${formatUnit(item.unit_type)} x ${formatCurrency(Number(item.unit_price))}`
   return [
@@ -49,7 +49,7 @@ function itemBlocks(item: OrderItem): ReceiptBlock[] {
   ]
 }
 
-function paymentLines(order: Order): { type: string; amount: number }[] {
+export function paymentLines(order: Order): { type: string; amount: number }[] {
   if (order.payment_splits && order.payment_splits.length > 0) {
     return order.payment_splits.map((split) => ({ type: split.type, amount: Number(split.amount) }))
   }
