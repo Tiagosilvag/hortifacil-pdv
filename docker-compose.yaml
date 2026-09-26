@@ -28,6 +28,8 @@ services:
       ENVIRONMENT: production
       DEBUG: "false"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Chave mestra do cofre de segredos fiscais (certificado, CSC). O compose só repassa o que está listado aqui.
+      FISCAL_SECRET_KEY: ${FISCAL_SECRET_KEY:-}
     depends_on:
       - redis
     restart: unless-stopped

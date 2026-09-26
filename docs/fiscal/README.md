@@ -24,9 +24,21 @@ O backend já sabe montar e "emitir" a NFC-e, mas só com um provedor **falso** 
 
 1. Tabela fiscal do contador por categoria (CST, CFOP, ICMS, PIS/COFINS), preenchida na aba Fiscal (C1b).
 2. CSC da NFC-e gerado na SEFAZ-PE (homologação e depois produção).
-3. Provedor escolhido e contratado, com o token guardado **só** nas variáveis de ambiente do Coolify.
-4. Adaptador do provedor real (um arquivo novo em `app/services/fiscal/`, registrado em `get_provider`).
+3. Um **modo de emissão real** funcionando. Hoje só a base existe (ver "Escolha do modo de emissão"): o adaptador do modo direto chega nas próximas etapas e o do provedor só depois de escolhido e contratado (o token dele iria para o cofre, nunca para o repositório).
+4. Certificado digital A1 (e-CNPJ ou NF-e, `.pfx`) da empresa, cadastrado em Configurações > Fiscal.
 5. Contingência **offline** da NFC-e (emitir sem conexão e transmitir depois): depende do provedor escolhido.
+
+## Escolha do modo de emissão (E0)
+
+Em Configurações > Fiscal o administrador escolhe **como** a nota é emitida: **Nenhum** (desligado, o padrão), **SEFAZ direto** (certificado digital A1, sem intermediário) ou, só em desenvolvimento, o **provedor de teste**. Um provedor pago entra depois como uma terceira opção, sem mexer no resto. A escolha vale para o sistema todo e fica no banco (coluna `fiscal_settings.mode`).
+
+- **Hoje o modo direto ainda não emite:** a tela deixa cadastrar o certificado e o CSC, e o servidor confere e guarda, mas nenhuma nota é emitida (o aviso aparece sob o seletor). Enquanto isso o modo direto também **não passa na trava de produção**.
+- **Cofre de segredos:** certificado (`.pfx` + senha) e CSC ficam **cifrados no banco** (AES-256-GCM), cada um preso ao seu tipo. Nada secreto volta para o navegador: a tela só vê titular, CNPJ, vencimento e o ID do CSC. A chave mestra é a variável `FISCAL_SECRET_KEY` (32 bytes em base64; o comando para gerar está em `backend/.env.example`). **No Coolify, crie a variável `FISCAL_SECRET_KEY` antes de cadastrar o certificado** (o `docker-compose.yaml` só repassa as variáveis listadas nele). Sem ela a tela avisa e recusa. Perder a chave obriga a cadastrar de novo o certificado e o CSC; trocá-la, idem.
+- **Conferências ao enviar o certificado:** senha correta, arquivo de até 1 MB, ainda dentro da validade e, quando a empresa já tem CNPJ salvo, **o mesmo CNPJ** (o CNPJ vem do certificado ICP-Brasil). A tela pinta o vencimento: aviso a 60 dias e vermelho a 15 dias.
+- **CSC:** um ID (só dígitos) e o código, um par para homologação e outro para produção, gerados no portal da SEFAZ-PE.
+- **Dados da reforma tributária:** cadastro de produto, tabela fiscal por categoria e itens do pedido ganharam **CST do IBS/CBS, cClassTrib e alíquotas de IBS e CBS**. Os valores vêm do contador (regime normal). Ainda não são exigidos para emitir e nada os usa até a etapa de emissão direta.
+- **Trava de produção:** exige um modo real (o direto), certificado da empresa dentro da validade, CSC de produção, venda de teste autorizada em homologação e a confirmação do contador.
+- **Não usar certificado real em testes:** os testes geram certificados descartáveis. O certificado verdadeiro só entra pela tela, no servidor.
 
 ## Cancelamento, reenvio e produção (C3)
 
