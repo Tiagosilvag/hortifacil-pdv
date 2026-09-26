@@ -85,7 +85,8 @@ function CompanyCard({ settings, message, setMessage }: { settings: FiscalSettin
         environment: v.environment,
         regime: v.regime,
         series: Number(v.series) || 1,
-        cancel_window_minutes: Number(v.cancel_window_minutes) || 30,
+        // Vazio deixa o servidor usar o padrão (30); 0 ou fora da faixa o servidor recusa com a mensagem certa.
+        cancel_window_minutes: v.cancel_window_minutes.trim() === '' ? undefined : Number(v.cancel_window_minutes),
         production_confirmation: confirmed,
         legal_name: v.legal_name.trim() || null,
         cnpj: digitsOnly(v.cnpj) || null,

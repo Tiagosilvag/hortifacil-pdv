@@ -73,8 +73,8 @@ def plan_emission(
     products_by_id: dict[Any, Any],
     defaults_by_category: dict[str, Any],
 ) -> Emission | Skip:
-    if order.fiscal_status == "authorized":
-        return Skip("authorized", "NFC-e já autorizada")
+    if order.fiscal_status in ("authorized", "cancelled"):
+        return Skip(order.fiscal_status, "NFC-e já autorizada" if order.fiscal_status == "authorized" else "NFC-e cancelada")
     status = getattr(order.status, "value", order.status)
     if status == "cancelled":
         return Skip("not_required", "Pedido cancelado")
@@ -106,8 +106,8 @@ def plan_emission(
 
 
 def apply_skip(order: Any, skip: Skip) -> None:
-    if order.fiscal_status == "authorized":
-        return  # uma nota autorizada nunca volta atrás por um "não emite agora"
+    if order.fiscal_status in ("authorized", "cancelled"):
+        return  # uma nota autorizada ou cancelada nunca volta atrás por um "não emite agora"
     order.fiscal_status = skip.status
     order.fiscal_error = skip.reason
 

@@ -24,12 +24,25 @@ RETRY_BATCH = 20
 RETRY_USER = "Sistema (reenvio automático)"
 
 
-async def pending_order_ids(db: AsyncSession, now: datetime, max_age_hours: int = RETRY_MAX_AGE_HOURS, limit: int = RETRY_BATCH) -> list[uuid.UUID]:
-    """Pedidos cuja NFC-e ficou pendente DEPOIS de uma chamada ao provedor (fora do ar, tempo esgotado), dos últimos dias.
+def reference_prefix(environment: str) -> str:
+    """Prefixo da referência das notas de um ambiente (o mesmo que o payload usa: hml- ou prod-)."""
+    return "prod-" if environment == "producao" else "hml-"
+
+
+async def pending_order_ids(
+    db: AsyncSession, now: datetime, environment: str = "homologacao", max_age_hours: int = RETRY_MAX_AGE_HOURS, limit: int = RETRY_BATCH,
+) -> list[uuid.UUID]:
+    """Pedidos cuja NFC-e ficou pendente DEPOIS de uma chamada ao provedor (fora do ar, tempo esgotado), dos últimos dias,
+    **do ambiente atual**: um pendente de homologação nunca é reenviado sozinho como nota de produção.
     Pendente por dado fiscal faltando (nenhuma chamada feita) fica de fora: esse depende de alguém corrigir o cadastro."""
     rows = await db.execute(
         select(Order.id)
-        .where(Order.fiscal_status == "pending", Order.fiscal_attempts > 0, Order.created_at >= now - timedelta(hours=max_age_hours))
+        .where(
+            Order.fiscal_status == "pending",
+            Order.fiscal_attempts > 0,
+            Order.fiscal_reference.like(reference_prefix(environment) + "%"),
+            Order.created_at >= now - timedelta(hours=max_age_hours),
+        )
         .order_by(Order.created_at)
         .limit(limit)
     )
@@ -37,8 +50,12 @@ async def pending_order_ids(db: AsyncSession, now: datetime, max_age_hours: int 
 
 
 async def retry_pending(db: AsyncSession, provider: FiscalProvider, now: datetime | None = None) -> int:
-    """Reenvia as notas pendentes. A emissão é idempotente pela referência, então repetir nunca duplica a nota."""
-    ids = await pending_order_ids(db, now or datetime.now(timezone.utc))
+    """Reenvia as notas pendentes. A emissão é idempotente pela referência, então repetir nunca duplica a nota.
+    Levanta EmissionDisabled se a emissão está desligada (para a rota responder isso em vez de "0 pendentes")."""
+    fiscal_settings = (await db.execute(fiscal_service.settings_query())).scalar_one_or_none()
+    if fiscal_settings is None or not fiscal_settings.enabled:
+        raise fiscal_service.EmissionDisabled("Emissão fiscal desligada")
+    ids = await pending_order_ids(db, now or datetime.now(timezone.utc), fiscal_settings.environment)
     done = 0
     for order_id in ids:
         try:
@@ -64,6 +81,8 @@ async def run_retry_loop(interval_seconds: int) -> None:
                 await retry_pending(db, provider)
         except asyncio.CancelledError:
             raise
+        except fiscal_service.EmissionDisabled:
+            continue  # emissão desligada nas configurações: nada a reenviar neste ciclo
         except Exception:
             log.exception("Ciclo de reenvio de NFC-e falhou")
 

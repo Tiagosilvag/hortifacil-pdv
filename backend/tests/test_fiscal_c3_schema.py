@@ -99,6 +99,7 @@ class TestMigration013:
         for column in ("cancel_window_minutes", "production_confirmed_by", "production_confirmed_at"):
             assert f"ALTER TABLE fiscal_settings ADD COLUMN {column} " in up and column in Base.metadata.tables["fiscal_settings"].columns
         assert "cancel_window_minutes INTEGER DEFAULT '30' NOT NULL" in up
+        assert "UPDATE fiscal_settings SET environment = 'homologacao' WHERE environment = 'producao'" in up
         down = sql_for("013:012", downgrade=True)
         assert "ALTER TABLE orders DROP COLUMN fiscal_reference" in down
         assert "ALTER TABLE fiscal_settings DROP COLUMN production_confirmed_at" in down

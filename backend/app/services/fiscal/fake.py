@@ -49,3 +49,14 @@ class FakeFiscalProvider:
             raise ProviderUnavailable(f"nota {reference} não encontrada (provedor falso)")
         self.cancelled.add(reference)
         return CancelResult(cancelled=True, code="135", message="Cancelamento homologado (provedor falso)")
+
+
+_shared: FakeFiscalProvider | None = None
+
+
+def shared_fake_provider() -> FakeFiscalProvider:
+    """O provedor falso de desenvolvimento: um só para o processo, para lembrar das notas entre uma requisição e outra."""
+    global _shared
+    if _shared is None:
+        _shared = FakeFiscalProvider()
+    return _shared

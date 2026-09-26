@@ -77,6 +77,17 @@ class TestRoutes:
         assert client(UserRole.operator).post("/api/v1/fiscal/retry-pending").status_code == 403
         assert client(UserRole.admin).post("/api/v1/fiscal/retry-pending").status_code == 409  # sem provedor
 
+    def test_reenviar_pendentes_com_a_emissao_desligada_e_409_e_nao_zero_pendentes(self, client, monkeypatch):
+        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "fake")
+
+        async def disabled(db, provider, now=None):
+            from app.services.fiscal_service import EmissionDisabled
+            raise EmissionDisabled("desligada")
+
+        monkeypatch.setattr(fiscal_retry, "retry_pending", disabled)
+        response = client().post("/api/v1/fiscal/retry-pending")
+        assert response.status_code == 409 and "desligada" in response.json()["detail"]
+
     def test_reenviar_pendentes_com_provedor_devolve_quantos_tentou(self, client, monkeypatch):
         monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "fake")
 

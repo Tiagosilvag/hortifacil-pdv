@@ -94,4 +94,7 @@ async def retry_pending(db: AsyncSession = Depends(get_db), _: User = Depends(re
     provider = fiscal_cancel.configured_provider()
     if provider is None:
         raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
-    return {"attempted": await fiscal_retry.retry_pending(db, provider)}
+    try:
+        return {"attempted": await fiscal_retry.retry_pending(db, provider)}
+    except fiscal_service.EmissionDisabled:
+        raise HTTPException(status_code=409, detail="Emissão fiscal desligada. Ligue em Configurações > Fiscal") from None

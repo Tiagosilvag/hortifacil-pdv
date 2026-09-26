@@ -211,11 +211,14 @@ async def cancel_order(
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="Pedido já foi cancelado")
     # Trava a linha: se a emissão em segundo plano estiver rodando, espera ela terminar e olha o estado real.
-    fiscal_status, fiscal_attempts = (
+    fiscal_status, fiscal_attempts, current_status = (
         await db.execute(
-            select(Order.fiscal_status, Order.fiscal_attempts).where(Order.id == order.id).with_for_update()
+            select(Order.fiscal_status, Order.fiscal_attempts, Order.status).where(Order.id == order.id).with_for_update()
         )
     ).one()
+    if current_status == OrderStatus.cancelled:
+        # Outro cancelamento ganhou a corrida: não devolve o estoque nem mexe no fiado de novo.
+        raise HTTPException(status_code=400, detail="Pedido já foi cancelado")
     if fiscal_status == "authorized":
         # A NFC-e é cancelada primeiro. Se algo falhar (prazo, motivo, provedor, SEFAZ), levanta e o pedido NÃO é cancelado:
         # cancelar a venda deixando a nota válida seria inconsistente.

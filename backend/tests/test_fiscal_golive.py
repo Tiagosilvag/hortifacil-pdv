@@ -32,8 +32,9 @@ class FakeDb:
         self.queue = list(results)
         self.commits = 0
 
-    async def execute(self, _statement):
+    async def execute(self, statement):
         self.current = self.queue.pop(0)
+        self.last_params = list(statement.compile().params.values()) if hasattr(statement, "compile") else []
         return self
 
     def scalar_one_or_none(self):
@@ -78,6 +79,11 @@ class TestProblems:
     def test_exige_uma_venda_de_teste_autorizada_em_homologacao(self, real_provider):
         problems = run(golive.go_live_problems(FakeDb(0), data()))
         assert problems == ["faça ao menos uma venda de teste autorizada em homologação"]
+
+    def test_venda_de_teste_autorizada_e_depois_cancelada_tambem_conta(self, real_provider):
+        db = FakeDb(1)
+        assert run(golive.go_live_problems(db, data())) == []
+        assert ["authorized", "cancelled"] in db.last_params  # o filtro aceita as duas situações
 
     def test_exige_a_confirmacao_do_contador(self, real_provider):
         problems = run(golive.go_live_problems(FakeDb(1), data(production_confirmation=False)))

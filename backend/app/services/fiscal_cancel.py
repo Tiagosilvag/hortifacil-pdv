@@ -126,14 +126,15 @@ async def refresh_order(db: AsyncSession, order_id: uuid.UUID, provider: FiscalP
     ).scalar_one_or_none()
     if order is None:
         return None
+    if order.fiscal_status not in ("pending", "rejected"):
+        return order  # autorizada ou cancelada é situação final: a consulta não pode reabrir nem trocar a nota
     if not order.fiscal_reference:
         raise HTTPException(status_code=409, detail="Este pedido ainda não foi enviado ao provedor fiscal: use \"Tentar de novo\".")
     try:
         result = await provider.get_nfce(order.fiscal_reference)
     except ProviderUnavailable as exc:
         raise HTTPException(status_code=502, detail=f"Não foi possível consultar o provedor fiscal: {exc}") from None
-    if order.fiscal_status != "authorized":
-        fiscal_service.apply_result(order, result)
+    fiscal_service.apply_result(order, result)
     db.add(FiscalEvent(order_id=order.id, kind="refresh", status=result.status, code=result.code, message=result.message,
                        raw=result.raw, created_by_name=user_name))
     await db.commit()

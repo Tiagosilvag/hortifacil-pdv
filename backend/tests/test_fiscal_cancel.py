@@ -256,7 +256,7 @@ class TestCancelOrderEndToEnd:
 
         monkeypatch.setattr(ops, "configured_provider", lambda: fake)
         o.status, o.payment_type, o.payment_splits, o.customer_id, o.notes = OrderStatus.delivered, PaymentType.cash, None, None, None
-        db = FakeDb([("authorized", 1)], [settings])  # 1ª consulta: o estado real da nota, lido com trava; 2ª: a configuração fiscal
+        db = FakeDb([("authorized", 1, OrderStatus.delivered)], [settings])  # 1ª consulta: o estado real da nota, lido com trava; 2ª: a configuração fiscal
         admin = SimpleNamespace(id=uuid.uuid4(), name="Maria", role=UserRole.admin)
         run(order_service.cancel_order(db, o, admin, REASON))
         return db
@@ -277,3 +277,55 @@ class TestCancelOrderEndToEnd:
             self.cancel(monkeypatch, o, fake)
         assert info.value.status_code == 409
         assert o.fiscal_status == "authorized" and o.status == OrderStatus.delivered and fake.cancelled == set()
+
+
+class TestNotaCanceladaEFinal:
+    """Achados da revisão: consultar situação e tentar de novo não podem reabrir, trocar ou apagar uma nota cancelada."""
+
+    def test_consultar_situacao_de_nota_final_nao_chama_o_provedor_nem_muda_nada(self):
+        class Boom(FakeFiscalProvider):
+            async def get_nfce(self, reference):
+                raise AssertionError("não deveria consultar")
+
+        for status in ("authorized", "cancelled"):
+            o = order(fiscal_status=status, invoice_key="0" * 44, fiscal_cancel_reason="motivo antigo")
+            db = FakeDb([o])
+            assert run(ops.refresh_order(db, o.id, Boom(), "Maria")) is o
+            assert o.fiscal_status == status and db.added == [] and o.invoice_key == "0" * 44
+
+    def test_consultar_situacao_ainda_atualiza_pendente_e_rejeitada(self):
+        fake = provider_with_note()
+        for status in ("pending", "rejected"):
+            o = order(fiscal_status=status)
+            run(ops.refresh_order(FakeDb([o]), o.id, fake, "Maria"))
+            assert o.fiscal_status == "authorized"
+
+    def test_emissao_trata_nota_cancelada_como_situacao_final(self):
+        from app.services import fiscal_service as svc
+
+        o = order(fiscal_status="cancelled", status="delivered", payment_type="cash", payment_splits=None, total=10, items=[])
+        plan = svc.plan_emission(o, settings, {}, {})
+        assert isinstance(plan, svc.Skip) and plan.status == "cancelled"
+        svc.apply_skip(o, svc.Skip("not_required", "qualquer coisa"))
+        assert o.fiscal_status == "cancelled" and o.fiscal_error is None  # nunca volta para not_required
+
+    def test_provedor_falso_de_desenvolvimento_lembra_das_notas_entre_as_chamadas(self):
+        from app.services.fiscal.provider import get_provider
+
+        first = get_provider("fake", "development")
+        assert get_provider("fake", "development") is first
+        run(first.emit_nfce({"reference": "hml-777", "series": 1}))
+        assert run(get_provider("fake", "development").cancel_nfce("hml-777", REASON)).cancelled is True
+
+    def test_dois_cancelamentos_ao_mesmo_tempo_o_segundo_nao_repete_nada(self, monkeypatch):
+        from app.models.order import OrderStatus, PaymentType
+        from app.models.user import UserRole
+        from app.services import order_service
+
+        o = order()
+        o.status, o.payment_type, o.payment_splits, o.customer_id, o.notes = OrderStatus.delivered, PaymentType.cash, None, None, None
+        db = FakeDb([("cancelled", 1, OrderStatus.cancelled)])  # o outro cancelamento já terminou quando esta linha foi lida com a trava
+        admin = SimpleNamespace(id=uuid.uuid4(), name="Maria", role=UserRole.admin)
+        with pytest.raises(HTTPException) as info:
+            run(order_service.cancel_order(db, o, admin, REASON))
+        assert info.value.status_code == 400 and "já foi cancelado" in info.value.detail

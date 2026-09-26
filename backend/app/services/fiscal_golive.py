@@ -30,11 +30,11 @@ async def go_live_problems(db: AsyncSession, data: Any) -> list[str]:
     hml_authorized = (
         await db.execute(
             select(func.count()).select_from(Order).where(
-                Order.fiscal_status == "authorized", Order.fiscal_reference.like("hml-%")
+                Order.fiscal_status.in_(("authorized", "cancelled")), Order.fiscal_reference.like("hml-%")
             )
         )
     ).scalar_one()
-    if not hml_authorized:
+    if not hml_authorized:  # autorizada e depois cancelada (para testar o cancelamento) também vale
         problems.append("faça ao menos uma venda de teste autorizada em homologação")
 
     if not data.production_confirmation:

@@ -436,7 +436,14 @@ export default function OrderDetail() {
             />
             {cancelError && <p className="mb-3 text-sm text-red-700 dark:text-red-400">{cancelError}</p>}
             <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowCancelModal(false)}>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setShowCancelModal(false)
+                  setCancelError('')
+                }}
+              >
                 Voltar
               </Button>
               <Button

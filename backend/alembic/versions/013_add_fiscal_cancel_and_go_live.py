@@ -21,6 +21,9 @@ def upgrade() -> None:
     op.add_column("fiscal_settings", sa.Column("cancel_window_minutes", sa.Integer(), nullable=False, server_default="30"))
     op.add_column("fiscal_settings", sa.Column("production_confirmed_by", sa.String(255), nullable=True))
     op.add_column("fiscal_settings", sa.Column("production_confirmed_at", sa.DateTime(timezone=True), nullable=True))
+    # Antes desta migration a tela aceitava "produção" sem conferência. Nunca houve provedor real (o falso é recusado em
+    # produção), então nenhuma nota de verdade foi emitida: volta tudo para homologação e passa pela nova trava.
+    op.execute("UPDATE fiscal_settings SET environment = 'homologacao' WHERE environment = 'producao'")
 
 
 def downgrade() -> None:

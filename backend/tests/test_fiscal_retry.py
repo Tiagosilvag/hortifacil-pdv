@@ -3,6 +3,7 @@ import asyncio
 import os
 import uuid
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,15 +23,27 @@ def run(coro):
     return asyncio.run(coro)
 
 
+ENABLED = SimpleNamespace(enabled=True, environment="homologacao")
+
+
 class FakeDb:
-    def __init__(self, ids=()):
+    def __init__(self, ids=(), settings=ENABLED):
         self.ids = list(ids)
+        self.settings = settings
         self.statements = []
+        self.params = []
         self.rollbacks = 0
 
     async def execute(self, statement):
-        self.statements.append(str(statement))
+        text = str(statement)
+        self.current = self.settings if "fiscal_settings" in text else None
+        if "fiscal_settings" not in text:
+            self.statements.append(text)
+            self.params.append(list(statement.compile().params.values()))
         return self
+
+    def scalar_one_or_none(self):
+        return self.current
 
     def scalars(self):
         return self
@@ -48,6 +61,14 @@ def test_so_pega_pendentes_que_ja_chamaram_o_provedor_dos_ultimos_dias():
     sql = db.statements[0]
     assert "orders.fiscal_status" in sql and "orders.fiscal_attempts >" in sql and "orders.created_at >=" in sql
     assert "LIMIT" in sql and "ORDER BY orders.created_at" in sql
+    assert "orders.fiscal_reference LIKE" in sql and "hml-%" in db.params[0]
+
+
+def test_reenvio_so_pega_pedidos_do_ambiente_atual():
+    assert ops.reference_prefix("homologacao") == "hml-" and ops.reference_prefix("producao") == "prod-"
+    db = FakeDb([uuid.uuid4()])
+    run(ops.pending_order_ids(db, NOW, "producao"))
+    assert "prod-%" in db.params[0] and "hml-%" not in db.params[0]  # pendente de homologação nunca vira nota de produção
 
 
 class TestRetryPending:
@@ -61,7 +82,21 @@ class TestRetryPending:
         assert run(ops.retry_pending(FakeDb(ids), FakeFiscalProvider(), NOW)) == 2
         assert called == [(ids[0], ops.RETRY_USER), (ids[1], ops.RETRY_USER)]
 
-    def test_emissao_desligada_para_o_reenvio_sem_erro(self, monkeypatch):
+    def test_emissao_desligada_nas_configuracoes_levanta_para_a_rota_avisar(self, monkeypatch):
+        for settings in (SimpleNamespace(enabled=False, environment="homologacao"), None):
+            with pytest.raises(fiscal_service.EmissionDisabled):
+                run(ops.retry_pending(FakeDb([uuid.uuid4()], settings=settings), FakeFiscalProvider(), NOW))
+
+    def test_usa_o_ambiente_das_configuracoes(self, monkeypatch):
+        async def noop(db, order_id, provider, user_name):
+            return None
+
+        monkeypatch.setattr(fiscal_service, "emit_order", noop)
+        db = FakeDb([uuid.uuid4()], settings=SimpleNamespace(enabled=True, environment="producao"))
+        run(ops.retry_pending(db, FakeFiscalProvider(), NOW))
+        assert "prod-%" in db.params[0]
+
+    def test_emissao_desligada_no_meio_do_reenvio_para_sem_erro(self, monkeypatch):
         async def disabled(db, order_id, provider, user_name):
             raise fiscal_service.EmissionDisabled("desligada")
 
@@ -103,6 +138,32 @@ class TestLoop:
                 await task
 
         run(scenario())
+
+    def test_emissao_desligada_no_ciclo_nao_e_erro_e_o_laco_segue(self, monkeypatch):
+        monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "fake")
+        sleeps = []
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 3:
+                raise asyncio.CancelledError
+
+        class Session:
+            async def __aenter__(self):
+                return FakeDb()
+
+            async def __aexit__(self, *exc):
+                return False
+
+        async def disabled(db, provider, now=None):
+            raise fiscal_service.EmissionDisabled("desligada")
+
+        monkeypatch.setattr(ops.asyncio, "sleep", fake_sleep)
+        monkeypatch.setattr(ops, "AsyncSessionLocal", Session)
+        monkeypatch.setattr(ops, "retry_pending", disabled)
+        with pytest.raises(asyncio.CancelledError):
+            run(ops.run_retry_loop(120))
+        assert sleeps == [120, 120, 120]
 
     def test_um_ciclo_com_erro_nao_mata_os_seguintes(self, monkeypatch):
         monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "fake")

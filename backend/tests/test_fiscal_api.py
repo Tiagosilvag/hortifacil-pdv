@@ -184,7 +184,7 @@ class TestOrders:
 
     def test_nfce_em_processamento_bloqueia_o_cancelamento_e_manda_consultar_a_situacao(self):
         order = self.order_to_cancel()
-        db = FakeDb([("pending", 2)])  # o estado REAL da nota, lido com trava, vale mais que o objeto em memória
+        db = FakeDb([("pending", 2, OrderStatus.delivered)])  # o estado REAL da nota, lido com trava, vale mais que o objeto em memória
         with pytest.raises(HTTPException) as info:
             asyncio.run(order_service.cancel_order(db, order, user(UserRole.admin), "erro"))
         assert info.value.status_code == 409 and "Consultar situação" in info.value.detail
@@ -192,7 +192,7 @@ class TestOrders:
 
     def test_nfce_autorizada_sem_motivo_de_15_caracteres_nao_cancela_nem_chega_ao_provedor(self):
         order = self.order_to_cancel()
-        db = FakeDb([("authorized", 1)])
+        db = FakeDb([("authorized", 1, OrderStatus.delivered)])
         with pytest.raises(HTTPException) as info:
             asyncio.run(order_service.cancel_order(db, order, user(UserRole.admin), "erro"))
         assert info.value.status_code == 422 and "15 caracteres" in info.value.detail
@@ -201,7 +201,7 @@ class TestOrders:
     @pytest.mark.parametrize("fiscal_status,attempts", [("not_required", 0), ("pending", 0), ("rejected", 1)])
     def test_sem_nota_valida_o_cancelamento_segue_normalmente(self, fiscal_status, attempts):
         order = self.order_to_cancel()
-        asyncio.run(order_service.cancel_order(FakeDb([(fiscal_status, attempts)]), order, user(UserRole.admin), "erro"))
+        asyncio.run(order_service.cancel_order(FakeDb([(fiscal_status, attempts, OrderStatus.delivered)]), order, user(UserRole.admin), "erro"))
         assert order.status == OrderStatus.cancelled
 
     def test_cadastro_manual_da_nota_nao_sobrescreve_a_chave_de_uma_nfce_autorizada(self):

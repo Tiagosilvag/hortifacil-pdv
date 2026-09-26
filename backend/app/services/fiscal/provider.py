@@ -47,7 +47,7 @@ def get_provider(name: str, environment: str) -> FiscalProvider | None:
     if name == "fake":
         if environment != "development":
             raise RuntimeError("O provedor fiscal falso só pode ser usado em desenvolvimento, nunca em produção")
-        from app.services.fiscal.fake import FakeFiscalProvider
+        from app.services.fiscal.fake import shared_fake_provider
 
-        return FakeFiscalProvider()
+        return shared_fake_provider()  # o mesmo entre as chamadas: senão o cancelamento nunca encontra a nota emitida antes
     raise ValueError(f"Provedor fiscal desconhecido: {name}")

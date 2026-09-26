@@ -66,7 +66,7 @@ class Order(Base):
     fiscal_emitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     fiscal_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     fiscal_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    # Referência usada no provedor (fixada na emissão, com o ambiente da época) e dados do cancelamento da nota
+    # Referência usada no provedor na última emissão (hml-N ou prod-N, conforme o ambiente) e dados do cancelamento da nota
     fiscal_reference: Mapped[str | None] = mapped_column(String(30), nullable=True)
     fiscal_cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     fiscal_cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
