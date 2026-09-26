@@ -7,11 +7,15 @@ from app.api.v1 import (
     auth, categories, customers, dashboard, fiscal, orders, products, receivables, reports, stock_losses, users,
 )
 from app.core.config import settings
+from app.services import fiscal_retry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    retry_task = fiscal_retry.start_retry_loop()  # None sem provedor fiscal ou com o intervalo em 0
     yield
+    if retry_task:
+        retry_task.cancel()
 
 
 app = FastAPI(

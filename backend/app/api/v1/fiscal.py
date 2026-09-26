@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin
@@ -12,7 +12,7 @@ from app.schemas.fiscal import (
     PendingProductOut,
 )
 from app.schemas.order import OrderOut
-from app.services import fiscal_service
+from app.services import fiscal_cancel, fiscal_retry, fiscal_service
 from app.services.fiscal.provider import get_provider
 
 router = APIRouter(prefix="/fiscal", tags=["fiscal"])
@@ -72,3 +72,26 @@ async def emit_order(
 ):
     """"Tentar de novo": emite (ou reemite) a NFC-e do pedido agora, sem esperar."""
     return await fiscal_service.retry_emission(db, order_id, current_user.name)
+
+
+@router.post("/orders/{order_id}/refresh", response_model=OrderOut)
+async def refresh_order(
+    order_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """"Consultar situação": pergunta ao provedor o que houve com a nota (útil depois de um tempo esgotado)."""
+    provider = fiscal_cancel.configured_provider()
+    if provider is None:
+        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
+    order = await fiscal_cancel.refresh_order(db, order_id, provider, current_user.name)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return order
+
+
+@router.post("/retry-pending")
+async def retry_pending(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    """Reenvia agora as NFC-e pendentes por falha do provedor (o servidor também faz isso sozinho, de tempos em tempos)."""
+    provider = fiscal_cancel.configured_provider()
+    if provider is None:
+        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
+    return {"attempted": await fiscal_retry.retry_pending(db, provider)}
