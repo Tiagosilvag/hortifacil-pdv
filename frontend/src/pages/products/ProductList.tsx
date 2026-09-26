@@ -9,6 +9,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { listProducts, updateProduct, deleteProduct } from '@/api/products'
+import { getFiscalStatus, listPendingProducts } from '@/api/fiscal'
 import { getApiError } from '@/api/client'
 import { formatCurrency, formatUnit } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -59,14 +60,21 @@ export default function ProductList() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleteError, setDeleteError] = useState('')
+  const [onlyPending, setOnlyPending] = useState(false)
 
   const { data: products = [], isPending } = useQuery({
     queryKey: ['products', search],
     queryFn: () => listProducts({ search: search || undefined, include_inactive: true }),
   })
 
+  // Só mostra pendências fiscais quando a emissão está ligada: antes disso todos os produtos estariam "pendentes".
+  const { data: fiscalStatus } = useQuery({ queryKey: ['fiscal', 'status'], queryFn: getFiscalStatus, staleTime: 60_000 })
+  const showFiscal = !!fiscalStatus?.enabled
+  const { data: pending = [] } = useQuery({ queryKey: ['fiscal', 'pending'], queryFn: listPendingProducts, enabled: showFiscal })
+  const pendingById = useMemo(() => new Map(pending.map((p) => [p.id, p.missing])), [pending])
+
   const sorted = useMemo(() => {
-    return [...products].sort((a, b) => {
+    return [...products].filter((p) => !(showFiscal && onlyPending) || pendingById.has(p.id)).sort((a, b) => {
       let cmp = 0
       if (sortField === 'code') cmp = a.code - b.code
       else if (sortField === 'name') cmp = a.name.localeCompare(b.name, 'pt-BR')
@@ -74,7 +82,7 @@ export default function ProductList() {
       else if (sortField === 'stock') cmp = Number(a.stock) - Number(b.stock)
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [products, sortField, sortDir])
+  }, [products, sortField, sortDir, showFiscal, onlyPending, pendingById])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -122,6 +130,20 @@ export default function ProductList() {
           </Button>
         )}
       </div>
+
+      {showFiscal && pending.length > 0 && (
+        <label className="mb-3 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+          <input
+            type="checkbox"
+            checked={onlyPending}
+            onChange={(e) => {
+              setOnlyPending(e.target.checked)
+              setPage(1)
+            }}
+          />
+          {pending.length} produto{pending.length !== 1 ? 's' : ''} sem dados fiscais (não emitem NFC-e). Mostrar só eles.
+        </label>
+      )}
 
       <div className="relative mb-4">
         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
@@ -197,6 +219,11 @@ export default function ProductList() {
                           <Badge variant={p.is_active ? 'green' : 'slate'}>
                             {p.is_active ? 'Ativo' : 'Inativo'}
                           </Badge>
+                          {showFiscal && pendingById.has(p.id) && (
+                            <Badge variant="amber" className="ml-1">
+                              <span title={`Falta: ${pendingById.get(p.id)!.join(', ')}`}>Fiscal pendente</span>
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 justify-end">

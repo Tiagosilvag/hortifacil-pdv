@@ -8,9 +8,11 @@ import { Modal } from '@/components/ui/Modal'
 import { Input, Select } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/auth'
+import { FiscalFieldsForm } from '@/components/fiscal/FiscalFieldsForm'
 import type { Product } from '@/types'
+import { fiscalFormDefaults, fiscalPayload, type FiscalFormValues } from '@/utils/fiscal'
 
-interface FormData {
+interface FormData extends FiscalFormValues {
   name: string
   barcode: string
   unit_type: string
@@ -53,6 +55,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
         category: product?.category ?? '',
         stock: product?.stock != null ? String(product.stock) : '0',
         expiry_date: product?.expiry_date ?? '',
+        ...fiscalFormDefaults(product),
       })
     }
   }, [open, product, reset])
@@ -67,6 +70,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
         category: data.category,
         stock: parseFloat(data.stock) || 0,
         expiry_date: data.expiry_date || null,
+        ...fiscalPayload(data),
       }
       return isEditing
         ? updateProduct(product!.id, body)
@@ -74,6 +78,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['fiscal', 'pending'] })
       onClose()
     },
     onError: (err) => setApiError(getApiError(err)),
@@ -150,6 +155,15 @@ export default function ProductForm({ open, onClose, product }: Props) {
             {...register('expiry_date')}
           />
         </div>
+
+        <details className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+          <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+            Dados fiscais (NFC-e)
+          </summary>
+          <div className="mt-4">
+            <FiscalFieldsForm register={register} emptyHint="Vazio = usa o padrão da categoria" />
+          </div>
+        </details>
 
         {apiError && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
