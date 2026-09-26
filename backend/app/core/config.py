@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
     ENVIRONMENT: str = "development"
+
+    # Emissão fiscal: none (desligada) | fake (só desenvolvimento) | o nome de um provedor real, quando existir.
+    # O token do provedor e o CSC entram aqui por variável de ambiente, nunca no repositório.
+    FISCAL_PROVIDER: str = "none"
     DEBUG: bool = False
 
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
