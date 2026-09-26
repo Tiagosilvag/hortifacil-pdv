@@ -1,3 +1,4 @@
+import qrcode from 'qrcode-generator'
 import type { Receipt, ReceiptBlock } from './receipt'
 
 export interface RenderOptions {
@@ -16,6 +17,16 @@ export function escapeHtml(text: string): string {
 // Margem lateral de cada largura: a área imprimível da bobina de 80 mm é ~72 mm e a de 58 mm é ~48 mm.
 const SIDE_PADDING_MM: Record<58 | 80, number> = { 58: 5, 80: 4 }
 const FONT_PX: Record<58 | 80, number> = { 58: 11, 80: 12 }
+// Lado do QR Code: grande o bastante para a câmera do celular ler no papel térmico.
+const QR_MM: Record<58 | 80, number> = { 58: 34, 80: 40 }
+
+/** QR Code como SVG (nível de correção M, com margem): vai dentro da própria página, sem imagem externa nem rede. */
+function qrSvg(data: string): string {
+  const qr = qrcode(0, 'M')
+  qr.addData(data)
+  qr.make()
+  return qr.createSvgTag({ cellSize: 1, margin: 2, scalable: true })
+}
 
 function renderBlock(block: ReceiptBlock): string {
   switch (block.type) {
@@ -31,6 +42,8 @@ function renderBlock(block: ReceiptBlock): string {
       return '<div class="blank"></div>'
     case 'cut':
       return '' // no navegador quem corta o papel é o driver da impressora
+    case 'qrcode':
+      return `<div class="qr">${qrSvg(block.data)}</div>`
   }
 }
 
@@ -57,6 +70,8 @@ body::after { content: ''; display: block; height: 8mm; }
 .row .r { white-space: nowrap; text-align: right; }
 .divider { border-top: 1px dashed #000; margin: 2mm 0; }
 .blank { height: 3mm; }
+.qr { display: flex; justify-content: center; }
+.qr svg { width: ${QR_MM[widthMm]}mm; height: ${QR_MM[widthMm]}mm; }
 `.trim()
   return `<!doctype html>
 <html lang="pt-BR">
