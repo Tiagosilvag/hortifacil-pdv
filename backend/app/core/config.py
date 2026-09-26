@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # Emissão fiscal: none (desligada) | fake (só desenvolvimento) | o nome de um provedor real, quando existir.
     # O token do provedor e o CSC entram aqui por variável de ambiente, nunca no repositório.
     FISCAL_PROVIDER: str = "none"
+    # Chave mestra (32 bytes em base64) que cifra o certificado, o CSC e os tokens guardados no banco. Só existe no servidor.
+    FISCAL_SECRET_KEY: str = ""
     # A cada quantos segundos reenviar NFC-e pendentes por falha do provedor. 0 desliga. Só roda com provedor configurado.
     FISCAL_RETRY_INTERVAL_SECONDS: int = 120
     DEBUG: bool = False
