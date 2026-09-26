@@ -210,6 +210,12 @@ async def cancel_order(
         raise HTTPException(status_code=403, detail="Apenas administradores podem cancelar pedidos")
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="Pedido já foi cancelado")
+    if order.fiscal_status == "authorized":
+        # Cancelar a venda deixando a nota válida seria inconsistente; o cancelamento da NFC-e vem no C3.
+        raise HTTPException(
+            status_code=409,
+            detail="Este pedido tem NFC-e autorizada. O cancelamento da nota ainda não está disponível.",
+        )
 
     order.status = OrderStatus.cancelled
     if reason:

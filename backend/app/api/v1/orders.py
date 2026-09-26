@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.models.order import OrderStatus
 from app.models.user import User
 from app.schemas.order import OrderCancelRequest, OrderCreate, OrderInvoiceUpdate, OrderListOut, OrderOut
-from app.services import order_service
+from app.services import fiscal_service, order_service
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -17,10 +17,14 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.post("", response_model=OrderOut, status_code=201)
 async def create_order(
     data: OrderCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await order_service.create_order(db, data, current_user)
+    order = await order_service.create_order(db, data, current_user)
+    # A NFC-e sai depois da resposta: o pedido já está salvo e a SEFAZ nunca atrasa o caixa.
+    background_tasks.add_task(fiscal_service.emit_in_background, order.id, current_user.name)
+    return order
 
 
 @router.get("", response_model=list[OrderListOut])

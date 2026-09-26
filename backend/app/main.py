@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, categories, customers, dashboard, orders, products, receivables, reports, stock_losses, users
+from app.api.v1 import (
+    auth, categories, customers, dashboard, fiscal, orders, products, receivables, reports, stock_losses, users,
+)
 from app.core.config import settings
 
 
@@ -38,6 +40,7 @@ app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(stock_losses.router, prefix="/api/v1")
+app.include_router(fiscal.router, prefix="/api/v1")
 
 
 @app.get("/health")
