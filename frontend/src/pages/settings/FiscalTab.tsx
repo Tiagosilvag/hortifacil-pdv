@@ -57,9 +57,11 @@ function companyDefaults(s: FiscalSettings): CompanyForm {
   }
 }
 
-function CompanyCard({ settings }: { settings: FiscalSettings }) {
+type Message = { kind: 'ok' | 'error'; text: string } | null
+
+// A mensagem mora no FiscalTab: depois de salvar, o `updated_at` muda e este cartão remonta (o que apagaria um estado local).
+function CompanyCard({ settings, message, setMessage }: { settings: FiscalSettings; message: Message; setMessage: (m: Message) => void }) {
   const qc = useQueryClient()
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const { register, handleSubmit } = useForm<CompanyForm>({ defaultValues: companyDefaults(settings) })
 
   const save = useMutation({
@@ -205,9 +207,14 @@ function DefaultsCard() {
   const { data: pending = [] } = useQuery({ queryKey: ['fiscal', 'pending'], queryFn: listPendingProducts })
   const byCategory = new Map(defaults.map((d) => [d.category, d]))
 
+  const [removeError, setRemoveError] = useState('')
   const remove = useMutation({
     mutationFn: (id: string) => deleteFiscalDefault(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fiscal'] }),
+    onSuccess: () => {
+      setRemoveError('')
+      qc.invalidateQueries({ queryKey: ['fiscal'] })
+    },
+    onError: (err) => setRemoveError(cleanValidationMessage(getApiError(err))),
   })
 
   return (
@@ -257,6 +264,8 @@ function DefaultsCard() {
         </ul>
       )}
 
+      {removeError && <p className="mt-3 text-sm text-red-700 dark:text-red-400">{removeError}</p>}
+
       {editing && <DefaultModal key={editing} category={editing} existing={byCategory.get(editing)} onClose={() => setEditing(null)} />}
     </div>
   )
@@ -266,11 +275,12 @@ function DefaultsCard() {
 export function FiscalTab() {
   const { data: status } = useQuery({ queryKey: ['fiscal', 'status'], queryFn: getFiscalStatus })
   const { data: settings, isPending } = useQuery({ queryKey: ['fiscal', 'settings'], queryFn: getFiscalSettings })
+  const [companyMessage, setCompanyMessage] = useState<Message>(null)
 
   return (
     <div className="flex flex-col gap-5">
       {settings?.enabled && settings.environment === 'homologacao' && (
-        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+        <div role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200">
           <strong>Ambiente de homologação:</strong> as notas emitidas não têm valor fiscal.
         </div>
       )}
@@ -283,7 +293,7 @@ export function FiscalTab() {
       {isPending || !settings ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
       ) : (
-        <CompanyCard key={settings.updated_at ?? 'novo'} settings={settings} />
+        <CompanyCard key={settings.updated_at ?? 'novo'} settings={settings} message={companyMessage} setMessage={setCompanyMessage} />
       )}
       <DefaultsCard />
     </div>

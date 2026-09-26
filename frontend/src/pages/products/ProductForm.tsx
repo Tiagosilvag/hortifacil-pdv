@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/auth'
 import { FiscalFieldsForm } from '@/components/fiscal/FiscalFieldsForm'
 import type { Product } from '@/types'
-import { fiscalFormDefaults, fiscalPayload, type FiscalFormValues } from '@/utils/fiscal'
+import { cleanValidationMessage, fiscalFormDefaults, fiscalPayload, type FiscalFormValues } from '@/utils/fiscal'
 
 interface FormData extends FiscalFormValues {
   name: string
@@ -81,7 +81,7 @@ export default function ProductForm({ open, onClose, product }: Props) {
       qc.invalidateQueries({ queryKey: ['fiscal', 'pending'] })
       onClose()
     },
-    onError: (err) => setApiError(getApiError(err)),
+    onError: (err) => setApiError(cleanValidationMessage(getApiError(err))),
   })
 
   const onSubmit = (data: FormData) => {

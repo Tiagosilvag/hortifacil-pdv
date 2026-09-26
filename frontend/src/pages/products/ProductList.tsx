@@ -89,13 +89,17 @@ export default function ProductList() {
 
   const toggleActive = useMutation({
     mutationFn: (p: Product) => updateProduct(p.id, { is_active: !p.is_active }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['fiscal', 'pending'] })
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteProduct(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['fiscal', 'pending'] })
       setDeleteTarget(null)
       setDeleteError('')
     },

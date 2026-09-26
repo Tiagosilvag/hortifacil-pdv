@@ -4,7 +4,7 @@ import { getFiscalStatus } from '@/api/fiscal'
 import { getOrder } from '@/api/orders'
 import { Badge } from '@/components/ui/Badge'
 import type { Order } from '@/types'
-import { describeFiscal, fiscalPollDelay } from '@/utils/fiscal'
+import { describeFiscal, fiscalPollDelay, isFiscalSettled, MAX_FISCAL_POLLS } from '@/utils/fiscal'
 
 /**
  * Estado da NFC-e na tela "Pedido registrado". A emissão roda em segundo plano depois de o pedido ser salvo, então esta
@@ -26,7 +26,12 @@ export function FiscalStatusLine({ order }: { order: Order }) {
     refetchInterval: (query) => fiscalPollDelay(query.state.data ?? order, enabled, polls.current),
   })
 
-  const summary = describeFiscal(current ?? order, enabled)
+  const latest = current ?? order
+  // Depois de todas as consultas sem a nota assentar (provedor lento), não diz mais "Emitindo…": manda olhar o pedido.
+  const gaveUp = enabled && polls.current >= MAX_FISCAL_POLLS && !isFiscalSettled(latest)
+  const summary = gaveUp
+    ? { label: 'NFC-e ainda em andamento', variant: 'amber' as const, detail: 'Confira o estado no detalhe do pedido.' }
+    : describeFiscal(latest, enabled)
   if (!enabled && summary.label === 'Sem NFC-e') return null // emissão desligada: a tela fica como sempre foi
 
   return (
