@@ -32,6 +32,16 @@ export function FiscalFieldsForm({ register, emptyHint }: Props) {
       />
       <Input label="CST do PIS" placeholder="2 dígitos" inputMode="numeric" {...register('cst_pis')} />
       <Input label="CST do COFINS" placeholder="2 dígitos" inputMode="numeric" {...register('cst_cofins')} />
+      <Input
+        label="CST do IBS/CBS"
+        placeholder="3 dígitos"
+        inputMode="numeric"
+        hint="Reforma tributária: os valores vêm do contador"
+        {...register('cst_ibs_cbs')}
+      />
+      <Input label="Classificação tributária (cClassTrib)" placeholder="6 dígitos" inputMode="numeric" {...register('c_class_trib')} />
+      <Input label="Alíquota do IBS (%)" placeholder="Ex.: 0,1" inputMode="decimal" {...register('aliquota_ibs')} />
+      <Input label="Alíquota da CBS (%)" placeholder="Ex.: 0,9" inputMode="decimal" {...register('aliquota_cbs')} />
     </div>
   )
 }
