@@ -121,6 +121,8 @@ class FiscalSettingsIn(BaseModel):
 
     @model_validator(mode="after")
     def enabled_needs_complete_data(self) -> "FiscalSettingsIn":
+        if self.enabled and self.regime != "normal":
+            raise ValueError("A emissão só está pronta para o regime normal (o Simples Nacional usa CSOSN, ainda não suportado)")
         if self.enabled:
             needed = {
                 "CNPJ": self.cnpj, "Inscrição estadual": self.ie, "Razão social": self.legal_name,

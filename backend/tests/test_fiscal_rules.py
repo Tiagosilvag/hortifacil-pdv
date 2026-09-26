@@ -105,3 +105,9 @@ class TestMissing:
 def test_cst_composto_junta_origem_e_cst():
     assert rules.cst_composto(0, "00") == "000"
     assert rules.cst_composto(2, "60") == "260"
+
+
+def test_aliquota_nan_ou_infinita_e_erro_de_validacao_e_nao_excecao_inesperada():
+    for bad in ("NaN", "sNaN", "Infinity"):
+        with pytest.raises(ValueError, match="Alíquota"):
+            rules.normalize_field("aliquota_icms", bad)

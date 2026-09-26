@@ -48,7 +48,7 @@ def _consumer(customer: Any) -> dict[str, str] | None:
     return None
 
 
-def _payments(order: Any) -> list[dict[str, str]]:
+def _payments(order: Any, net: Decimal) -> list[dict[str, str]]:
     payment_type = getattr(order.payment_type, "value", order.payment_type)
     if payment_type == "mixed":
         parts = [(split["type"], split["amount"]) for split in (order.payment_splits or [])]
@@ -59,6 +59,10 @@ def _payments(order: Any) -> list[dict[str, str]]:
         if kind not in PAYMENT_METHODS:
             raise ValueError(f"Forma de pagamento sem código na NFC-e: {kind}")
         payments.append({"method": PAYMENT_METHODS[kind], "amount": _money(amount)})
+    # O pedido tolera 1 centavo de diferença entre os pagamentos e o total; a nota exige que fechem exatamente.
+    difference = net - sum((Decimal(p["amount"]) for p in payments), Decimal("0"))
+    if payments and difference != 0:
+        payments[-1]["amount"] = _money(Decimal(payments[-1]["amount"]) + difference)
     return payments
 
 
@@ -112,6 +116,6 @@ def build_nfce_payload(order: Any, settings: Any, resolved: dict[Any, dict[str, 
         },
         "consumer": _consumer(order.customer),
         "items": items,
-        "payments": _payments(order),
+        "payments": _payments(order, gross - discount),
         "totals": {"gross": _money(gross), "discount": _money(discount), "net": _money(gross - discount)},
     }

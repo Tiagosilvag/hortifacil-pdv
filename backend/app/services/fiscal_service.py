@@ -6,6 +6,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
@@ -26,6 +27,11 @@ from app.services.fiscal.rules import FISCAL_FIELDS, merge_fiscal, missing_field
 log = logging.getLogger(__name__)
 
 MAX_LISTED_PRODUCTS = 3
+
+
+def settings_query():
+    """Consulta única da linha de configuração; a ordem fixa garante que todos leiam a mesma linha."""
+    return select(FiscalSettings).order_by(FiscalSettings.id).limit(1)
 
 
 class EmissionDisabled(Exception):
@@ -73,6 +79,8 @@ def plan_emission(
         return Skip("not_required", "Pedido cancelado")
     if _has_installment(order):
         return Skip("not_required", "Venda com fiado: a NFC-e não é emitida")
+    if Decimal(order.total) <= 0:
+        return Skip("not_required", "Pedido de valor zero: a NFC-e não é emitida")
 
     resolved: dict[Any, dict[str, Any]] = {}
     problems: list[tuple[Any, str, list[str]]] = []
@@ -144,7 +152,7 @@ async def emit_order(db: AsyncSession, order_id: uuid.UUID, provider: FiscalProv
     ).scalar_one_or_none()
     if order is None:
         return None
-    fiscal_settings = (await db.execute(select(FiscalSettings).limit(1))).scalar_one_or_none()
+    fiscal_settings = (await db.execute(settings_query())).scalar_one_or_none()
     if fiscal_settings is None or not fiscal_settings.enabled:
         raise EmissionDisabled("Emissão fiscal desligada")
     products = (
@@ -180,7 +188,10 @@ async def emit_in_background(order_id: uuid.UUID, user_name: str) -> None:
 
 
 async def retry_emission(db: AsyncSession, order_id: uuid.UUID, user_name: str) -> Order:
-    provider = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT)
+    try:
+        provider = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT)
+    except (RuntimeError, ValueError):
+        provider = None
     if provider is None:
         raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
     try:
@@ -212,7 +223,7 @@ async def list_pending_products(db: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def get_settings(db: AsyncSession) -> FiscalSettings:
-    row = (await db.execute(select(FiscalSettings).limit(1))).scalar_one_or_none()
+    row = (await db.execute(settings_query())).scalar_one_or_none()
     if row is None:
         row = FiscalSettings(enabled=False, environment="homologacao", regime="normal", series=1)
         db.add(row)

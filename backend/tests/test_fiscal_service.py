@@ -98,6 +98,10 @@ class TestPlan:
         result = plan(make_order([order_item(BANANA)], **kw))
         assert result.status == "not_required" and "fiado" in result.reason
 
+    def test_pedido_de_valor_zero_nao_emite(self):
+        result = plan(make_order([order_item(BANANA)], total="0.00"))
+        assert result.status == "not_required" and "valor zero" in result.reason
+
     def test_produto_pendente_bloqueia_a_venda_e_diz_o_que_falta(self):
         semdado = product(205, "OVOS BRANCOS", category="Ovos")
         result = plan(make_order([order_item(BANANA), order_item(semdado)]), products=(BANANA, semdado))
@@ -239,6 +243,14 @@ class TestEntryPoints:
         with pytest.raises(HTTPException) as info:
             run(svc.retry_emission(FakeDb(), uuid.uuid4(), "Maria"))
         assert info.value.status_code == 409 and "não configurada" in info.value.detail
+
+    def test_tentar_de_novo_com_provedor_invalido_ou_falso_em_producao_e_409_e_nao_500(self, monkeypatch):
+        for name, environment in (("fake", "production"), ("nuvemfiscal", "development")):
+            monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", name)
+            monkeypatch.setattr(svc.app_settings, "ENVIRONMENT", environment)
+            with pytest.raises(HTTPException) as info:
+                run(svc.retry_emission(FakeDb(), uuid.uuid4(), "Maria"))
+            assert info.value.status_code == 409 and "não configurada" in info.value.detail
 
     def test_tentar_de_novo_com_emissao_desligada_e_409(self, monkeypatch):
         monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "fake")

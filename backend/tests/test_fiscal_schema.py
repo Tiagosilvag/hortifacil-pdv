@@ -64,6 +64,11 @@ class TestFiscalSettingsSchema:
         s = FiscalSettingsIn(enabled=True, **self.complete)
         assert (s.cnpj, s.ie, s.state, s.zip_code) == ("11222333000181", "123456789", "PE", "50000000")
 
+    def test_simples_nacional_ainda_nao_pode_ligar_a_emissao(self):
+        with pytest.raises(ValidationError, match="regime normal"):
+            FiscalSettingsIn(enabled=True, regime="simples", **self.complete)
+        FiscalSettingsIn(enabled=False, regime="simples")  # só guardar o regime é permitido
+
     def test_rejeita_cnpj_e_ambiente_invalidos(self):
         with pytest.raises(ValidationError, match="CNPJ deve ter 14 dígitos"):
             FiscalSettingsIn(cnpj="123")

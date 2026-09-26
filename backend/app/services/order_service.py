@@ -210,11 +210,18 @@ async def cancel_order(
         raise HTTPException(status_code=403, detail="Apenas administradores podem cancelar pedidos")
     if order.status == OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="Pedido já foi cancelado")
-    if order.fiscal_status == "authorized":
-        # Cancelar a venda deixando a nota válida seria inconsistente; o cancelamento da NFC-e vem no C3.
+    # Trava a linha: se a emissão em segundo plano estiver rodando, espera ela terminar e olha o estado real.
+    fiscal_status, fiscal_attempts = (
+        await db.execute(
+            select(Order.fiscal_status, Order.fiscal_attempts).where(Order.id == order.id).with_for_update()
+        )
+    ).one()
+    if fiscal_status == "authorized" or (fiscal_status == "pending" and fiscal_attempts > 0):
+        # Cancelar a venda deixando a nota válida (ou talvez autorizada, se o provedor deu timeout) seria inconsistente.
+        # O cancelamento da NFC-e vem no C3; enquanto isso, "Tentar de novo" resolve o pendente.
         raise HTTPException(
             status_code=409,
-            detail="Este pedido tem NFC-e autorizada. O cancelamento da nota ainda não está disponível.",
+            detail="Este pedido tem NFC-e autorizada ou em processamento. O cancelamento da nota ainda não está disponível.",
         )
 
     order.status = OrderStatus.cancelled
@@ -269,6 +276,8 @@ async def cancel_order(
 async def update_invoice(
     db: AsyncSession, order: Order, data: OrderInvoiceUpdate
 ) -> Order:
+    if order.fiscal_status == "authorized":
+        raise HTTPException(status_code=409, detail="Este pedido tem NFC-e autorizada: número e chave não podem ser alterados.")
     order.invoice_number = data.invoice_number
     order.invoice_series = data.invoice_series
     order.invoice_key = data.invoice_key

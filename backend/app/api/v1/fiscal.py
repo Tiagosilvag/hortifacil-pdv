@@ -1,13 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin
 from app.core.config import settings as app_settings
 from app.core.database import get_db
-from app.models.fiscal import FiscalSettings
 from app.models.user import User
 from app.schemas.fiscal import (
     FiscalDefaultIn, FiscalDefaultOut, FiscalSettingsIn, FiscalSettingsOut, FiscalStatusOut, PendingProductOut,
@@ -22,7 +20,7 @@ router = APIRouter(prefix="/fiscal", tags=["fiscal"])
 @router.get("/status", response_model=FiscalStatusOut)
 async def fiscal_status(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
     """Para o PDV: a emissão está ligada, há provedor configurado e em que ambiente."""
-    row = (await db.execute(select(FiscalSettings).limit(1))).scalar_one_or_none()
+    row = (await db.execute(fiscal_service.settings_query())).scalar_one_or_none()
     try:
         configured = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT) is not None
     except (RuntimeError, ValueError):

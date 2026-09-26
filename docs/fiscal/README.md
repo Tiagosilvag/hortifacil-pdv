@@ -17,7 +17,8 @@ O backend já sabe montar e "emitir" a NFC-e, mas só com um provedor **falso** 
 - **Fiado:** pedido com qualquer parte fiada não emite (`not_required`).
 - **Falha do provedor:** o pedido continua salvo; a nota fica `pending` e pode ser tentada de novo.
 - **Cancelamento:** pedido com NFC-e autorizada não pode ser cancelado ainda (o cancelamento da nota vem no C3).
-- **Produção:** `FISCAL_PROVIDER=fake` é recusado com `ENVIRONMENT=production`. Em produção o padrão é `none` (nada emite).
+- **Fora do desenvolvimento:** `FISCAL_PROVIDER=fake` só funciona com `ENVIRONMENT=development`; em qualquer outro valor é recusado. Em produção o padrão é `none` (nada emite).
+- **Simples Nacional:** ainda não dá para ligar a emissão com esse regime (a nota usaria CSOSN).
 
 ## O que falta para emitir de verdade
 

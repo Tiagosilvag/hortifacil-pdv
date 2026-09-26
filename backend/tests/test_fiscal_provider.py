@@ -60,6 +60,11 @@ class TestGetProvider:
         with pytest.raises(RuntimeError, match="produção"):
             prov.get_provider("fake", "production")
 
+    def test_falso_e_recusado_em_qualquer_ambiente_que_nao_seja_desenvolvimento(self):
+        for environment in ("production", "prod", "staging"):
+            with pytest.raises(RuntimeError, match="produção"):
+                prov.get_provider("fake", environment)
+
     def test_provedor_desconhecido_e_erro_claro(self):
         with pytest.raises(ValueError, match="nuvemfiscal"):
             prov.get_provider("nuvemfiscal", "development")

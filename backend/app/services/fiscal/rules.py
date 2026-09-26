@@ -63,7 +63,7 @@ def normalize_field(name: str, value: Any) -> Any:
             rate = Decimal(str(value))
         except InvalidOperation:
             raise ValueError("Alíquota do ICMS inválida") from None
-        if not Decimal("0") <= rate <= Decimal("100"):
+        if not rate.is_finite() or not Decimal("0") <= rate <= Decimal("100"):
             raise ValueError("Alíquota do ICMS deve ficar entre 0 e 100")
         return rate.quantize(Decimal("0.01"))
     raise KeyError(name)

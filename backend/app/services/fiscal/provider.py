@@ -40,13 +40,13 @@ class FiscalProvider(Protocol):
 
 
 def get_provider(name: str, environment: str) -> FiscalProvider | None:
-    """None = emissão fiscal desligada. O provedor falso é recusado em produção: ele "autorizaria" notas que não existem."""
+    """None = emissão fiscal desligada. O provedor falso só roda em desenvolvimento: ele "autorizaria" notas que não existem."""
     name = (name or "").strip().lower()
     if name in ("", "none"):
         return None
     if name == "fake":
-        if environment == "production":
-            raise RuntimeError("O provedor fiscal falso não pode ser usado em produção")
+        if environment != "development":
+            raise RuntimeError("O provedor fiscal falso só pode ser usado em desenvolvimento, nunca em produção")
         from app.services.fiscal.fake import FakeFiscalProvider
 
         return FakeFiscalProvider()

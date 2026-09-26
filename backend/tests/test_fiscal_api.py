@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.api.deps import get_current_user  # noqa: E402
 from app.core.database import get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models.order import OrderStatus  # noqa: E402
+from app.models.order import OrderStatus, PaymentType  # noqa: E402
 from app.models.user import UserRole  # noqa: E402
 from app.services import fiscal_service, order_service  # noqa: E402
 
@@ -34,6 +34,9 @@ class Result:
 
     def scalar_one_or_none(self):
         return self.rows[0] if self.rows else None
+
+    def one(self):
+        return self.rows[0]
 
     def scalars(self):
         return self
@@ -160,12 +163,32 @@ class TestOrders:
         assert response.json()["fiscal_status"] == "not_required"
         assert calls == [(created.id, "Maria")]
 
-    def test_pedido_com_nfce_autorizada_nao_pode_ser_cancelado_ainda(self):
-        order = SimpleNamespace(status=OrderStatus.delivered, fiscal_status="authorized", items=[], order_number=3)
+    @staticmethod
+    def order_to_cancel():
+        return SimpleNamespace(id=uuid.uuid4(), status=OrderStatus.delivered, items=[], order_number=3,
+                               payment_type=PaymentType.cash, payment_splits=None, customer_id=None, notes=None)
+
+    @pytest.mark.parametrize("fiscal_status,attempts", [("authorized", 1), ("pending", 2)])
+    def test_pedido_com_nfce_autorizada_ou_em_processamento_nao_pode_ser_cancelado_ainda(self, fiscal_status, attempts):
+        order = self.order_to_cancel()
+        db = FakeDb([(fiscal_status, attempts)])  # o estado REAL da nota, lido com trava, vale mais que o objeto em memória
         with pytest.raises(HTTPException) as info:
-            asyncio.run(order_service.cancel_order(FakeDb(), order, user(UserRole.admin), "erro"))
-        assert info.value.status_code == 409 and "NFC-e autorizada" in info.value.detail
+            asyncio.run(order_service.cancel_order(db, order, user(UserRole.admin), "erro"))
+        assert info.value.status_code == 409 and "NFC-e" in info.value.detail
         assert order.status == OrderStatus.delivered
+
+    @pytest.mark.parametrize("fiscal_status,attempts", [("not_required", 0), ("pending", 0), ("rejected", 1)])
+    def test_sem_nota_valida_o_cancelamento_segue_normalmente(self, fiscal_status, attempts):
+        order = self.order_to_cancel()
+        asyncio.run(order_service.cancel_order(FakeDb([(fiscal_status, attempts)]), order, user(UserRole.admin), "erro"))
+        assert order.status == OrderStatus.cancelled
+
+    def test_cadastro_manual_da_nota_nao_sobrescreve_a_chave_de_uma_nfce_autorizada(self):
+        order = SimpleNamespace(fiscal_status="authorized", invoice_number="1", invoice_series="1", invoice_key="0" * 44)
+        data = SimpleNamespace(invoice_number="9", invoice_series="9", invoice_key=None)
+        with pytest.raises(HTTPException) as info:
+            asyncio.run(order_service.update_invoice(FakeDb(), order, data))
+        assert info.value.status_code == 409 and order.invoice_key == "0" * 44
 
     def test_tentar_de_novo_sem_provedor_e_409(self, client, monkeypatch):
         monkeypatch.setattr(fiscal_service.app_settings, "FISCAL_PROVIDER", "none")

@@ -94,6 +94,13 @@ class TestBuild:
                   splits=[{"type": "cash", "amount": 5}, {"type": "pix", "amount": 15.0}])
         assert self.build(o)["payments"] == [{"method": "01", "amount": "5.00"}, {"method": "17", "amount": "15.00"}]
 
+    def test_pagamentos_com_1_centavo_de_folga_fecham_exatamente_o_total_da_nota(self):
+        o = order([item(1, "A", "unit", "1", "20.00", "20.00")], total="20.00", payment_type="mixed",
+                  splits=[{"type": "cash", "amount": 10}, {"type": "pix", "amount": 9.99}])
+        payments = self.build(o)["payments"]
+        assert payments == [{"method": "01", "amount": "10.00"}, {"method": "17", "amount": "10.00"}]
+        assert sum(D(p["amount"]) for p in payments) == D("20.00")
+
     def test_forma_de_pagamento_desconhecida_e_erro_claro(self):
         o = order([item(1, "A", "unit", "1", "5.00", "5.00")], total="5.00", payment_type="cheque")
         with pytest.raises(ValueError, match="cheque"):
