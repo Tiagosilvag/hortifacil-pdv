@@ -35,6 +35,9 @@ export interface FiscalSettingsBody {
   city_ibge: string | null
   state: string | null
   zip_code: string | null
+  cancel_window_minutes?: number
+  /** Só vale ao passar de homologação para produção. */
+  production_confirmation?: boolean
 }
 
 export async function saveFiscalSettings(body: FiscalSettingsBody): Promise<FiscalSettings> {
@@ -65,5 +68,17 @@ export async function listPendingProducts(): Promise<PendingProduct[]> {
 /** "Tentar de novo": emite (ou reemite) a NFC-e do pedido agora e devolve o pedido atualizado. */
 export async function emitOrderNfce(orderId: string): Promise<Order> {
   const { data } = await api.post<Order>(`/fiscal/orders/${orderId}/emit`)
+  return data
+}
+
+/** "Consultar situação": pergunta ao provedor o que houve com a nota (útil depois de um tempo esgotado). */
+export async function refreshOrderNfce(orderId: string): Promise<Order> {
+  const { data } = await api.post<Order>(`/fiscal/orders/${orderId}/refresh`)
+  return data
+}
+
+/** Reenvia agora as notas pendentes por falha do provedor (só administrador). */
+export async function retryPendingNfce(): Promise<{ attempted: number }> {
+  const { data } = await api.post<{ attempted: number }>('/fiscal/retry-pending')
   return data
 }

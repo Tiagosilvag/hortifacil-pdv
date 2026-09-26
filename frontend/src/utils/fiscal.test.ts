@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canRefreshFiscal,
+  cancelReasonError,
   cleanValidationMessage,
   describeFiscal,
   digitsOnly,
@@ -10,6 +12,7 @@ import {
   fiscalVariant,
   formatAccessKey,
   isFiscalSettled,
+  isProductionWord,
   MAX_FISCAL_POLLS,
   summarizeDefault,
 } from './fiscal'
@@ -122,4 +125,37 @@ it('formatAccessKey agrupa a chave de 44 dígitos de 4 em 4', () => {
   expect(key).toHaveLength(44)
   expect(formatAccessKey(key)).toBe('2626 0311 2223 3300 0181 6500 1000 0000 0110 0000 0019')
   expect(formatAccessKey(null)).toBe('')
+})
+
+describe('cancelamento de pedido com NFC-e', () => {
+  it('com NFC-e autorizada o motivo tem de ter 15 caracteres; sem NFC-e é opcional', () => {
+    expect(cancelReasonError('', false)).toBeNull()
+    expect(cancelReasonError('curto', false)).toBeNull()
+    expect(cancelReasonError('curto', true)).toMatch(/pelo menos 15 caracteres/)
+    expect(cancelReasonError('   14 caracteres  ', true)).toMatch(/15/) // os espaços das pontas não contam
+    expect(cancelReasonError('Cliente desistiu da compra', true)).toBeNull()
+  })
+
+  it('nota cancelada mostra o motivo no estado do pedido', () => {
+    expect(describeFiscal({ fiscal_status: 'cancelled', fiscal_cancel_reason: 'Cliente desistiu da compra' }, true)).toEqual({
+      label: 'Cancelada',
+      variant: 'red',
+      detail: 'Motivo: Cliente desistiu da compra',
+    })
+    expect(describeFiscal({ fiscal_status: 'cancelled' }, true).detail).toBeNull()
+  })
+})
+
+describe('consultar situação da nota', () => {
+  it('só para nota pendente que já foi ao provedor', () => {
+    expect(canRefreshFiscal({ fiscal_status: 'pending', fiscal_attempts: 2 })).toBe(true)
+    expect(canRefreshFiscal({ fiscal_status: 'pending', fiscal_attempts: 0 })).toBe(false) // faltava dado fiscal: nada foi enviado
+    expect(canRefreshFiscal({ fiscal_status: 'authorized', fiscal_attempts: 1 })).toBe(false)
+    expect(canRefreshFiscal({})).toBe(false)
+  })
+})
+
+it('a palavra de confirmação da produção aceita acento e qualquer caixa', () => {
+  for (const ok of ['PRODUÇÃO', 'produção', ' Producao ', 'PRODUCAO']) expect(isProductionWord(ok)).toBe(true)
+  for (const bad of ['', 'produ', 'homologação', 'PRODUÇÃO!']) expect(isProductionWord(bad)).toBe(false)
 })

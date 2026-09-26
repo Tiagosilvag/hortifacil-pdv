@@ -23,6 +23,8 @@ export interface OrderFiscal {
   fiscal_emitted_at: string | null
   fiscal_error: string | null
   fiscal_attempts: number
+  fiscal_cancelled_at: string | null
+  fiscal_cancel_reason: string | null
 }
 
 export type FiscalRegime = 'normal' | 'simples'
@@ -33,6 +35,7 @@ export interface FiscalSettings {
   environment: FiscalEnvironment
   regime: FiscalRegime
   series: number
+  cancel_window_minutes: number
   cnpj: string | null
   ie: string | null
   legal_name: string | null
@@ -45,6 +48,8 @@ export interface FiscalSettings {
   zip_code: string | null
   updated_at: string | null
   updated_by_name: string | null
+  production_confirmed_by: string | null
+  production_confirmed_at: string | null
 }
 
 export interface FiscalDefault extends FiscalFields {

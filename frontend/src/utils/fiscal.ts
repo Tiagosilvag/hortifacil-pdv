@@ -10,7 +10,7 @@ export const FISCAL_STATUS_LABEL: Record<FiscalStatus, string> = {
 
 export type FiscalVariant = 'green' | 'amber' | 'red' | 'slate'
 
-type OrderLike = Partial<Pick<OrderFiscal, 'fiscal_status' | 'fiscal_error' | 'fiscal_attempts'>>
+type OrderLike = Partial<Pick<OrderFiscal, 'fiscal_status' | 'fiscal_error' | 'fiscal_attempts' | 'fiscal_cancel_reason'>>
 
 /** Pedidos de antes da NFC-e não trazem o campo: contam como "sem NFC-e". */
 export function fiscalStatusOf(order: OrderLike): FiscalStatus {
@@ -58,6 +58,9 @@ export function describeFiscal(order: OrderLike, emissionEnabled: boolean): Fisc
       : { label: FISCAL_STATUS_LABEL.not_required, variant: 'slate', detail: null }
   }
   if (status === 'pending' && !order.fiscal_error) return { label: 'Emitindo NFC-e…', variant: 'amber', detail: null }
+  if (status === 'cancelled') {
+    return { label: FISCAL_STATUS_LABEL[status], variant: 'red', detail: order.fiscal_cancel_reason ? `Motivo: ${order.fiscal_cancel_reason}` : null }
+  }
   return { label: FISCAL_STATUS_LABEL[status], variant: fiscalVariant(status), detail: order.fiscal_error ?? null }
 }
 
@@ -142,4 +145,24 @@ export function cleanValidationMessage(text: string): string {
 export function formatAccessKey(key: string | null | undefined): string {
   if (!key) return ''
   return key.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ')
+}
+
+/** A SEFAZ exige de 15 a 255 caracteres no motivo do cancelamento de uma NFC-e. */
+export const CANCEL_REASON_MIN = 15
+
+/** Mensagem quando o motivo não serve; `null` quando serve (ou quando o pedido não tem NFC-e autorizada, e o motivo é opcional). */
+export function cancelReasonError(text: string, nfceAuthorized: boolean): string | null {
+  if (!nfceAuthorized) return null
+  return text.trim().length >= CANCEL_REASON_MIN ? null : `Informe o motivo com pelo menos ${CANCEL_REASON_MIN} caracteres (a SEFAZ exige).`
+}
+
+/** "Consultar situação" só faz sentido para nota pendente que já foi ao provedor (a SEFAZ pode ter autorizado). */
+export function canRefreshFiscal(order: OrderLike): boolean {
+  return fiscalStatusOf(order) === 'pending' && (order.fiscal_attempts ?? 0) > 0
+}
+
+/** Palavra que o administrador digita para confirmar a ida para produção (com ou sem acento, em qualquer caixa). */
+export function isProductionWord(text: string): boolean {
+  const word = text.trim().toUpperCase()
+  return word === 'PRODUÇÃO' || word === 'PRODUCAO'
 }
