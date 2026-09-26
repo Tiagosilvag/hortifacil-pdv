@@ -26,4 +26,12 @@ O backend já sabe montar e "emitir" a NFC-e, mas só com um provedor **falso** 
 2. CSC da NFC-e gerado na SEFAZ-PE (homologação e depois produção).
 3. Provedor escolhido e contratado, com o token guardado **só** nas variáveis de ambiente do Coolify.
 4. Adaptador do provedor real (um arquivo novo em `app/services/fiscal/`, registrado em `get_provider`).
-5. Telas (C1b), cupom com QR Code na Epson (C2) e cancelamento/contingência (C3).
+5. Cancelamento e contingência (C3).
+
+## Cupom fiscal na Epson (C2)
+
+Com a NFC-e **autorizada**, o botão de imprimir passa a ser **Imprimir cupom fiscal** (na tela do pedido, **Reimprimir cupom fiscal**) e o cupom sai como DANFE NFC-e, com QR Code. Nos demais casos (fiado, dado fiscal faltando, emissão desligada) continua saindo o **cupom não fiscal**.
+
+- **Impressão automática ao confirmar:** com a emissão fiscal ligada, ela espera a nota assentar (alguns segundos) para imprimir o documento certo; se a nota não assentar a tempo, imprime o cupom não fiscal. Sem emissão fiscal, imprime na hora, como antes.
+- **Dados da empresa** no cupom vêm de Configurações > Fiscal (o servidor os entrega a qualquer usuário logado em `GET /api/v1/fiscal/status`).
+- **Ainda fora do cupom:** os **tributos aproximados** (Lei 12.741, que precisa da tabela IBPT por NCM) e o **endereço de consulta da SEFAZ** impresso por extenso (depende do provedor real). Confirmar com o contador antes de emitir em produção.

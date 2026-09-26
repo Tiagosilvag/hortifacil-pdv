@@ -35,6 +35,9 @@ Com essa opção, **qualquer** impressão desse navegador sai direto na impresso
 - [ ] Um **pedido de verdade**: confirme um pedido de teste; o cupom sai sozinho com os itens, o total e o pagamento certos.
 - [ ] **Reimprimir cupom** na tela do pedido funciona; num pedido cancelado, sai "CANCELADO".
 - [ ] (Opcional) Troque para **58 mm** na aba Impressora e no driver, e repita o teste.
+- [ ] **Cupom fiscal** (só com a emissão fiscal ligada; em desenvolvimento, com o provedor falso): confirme um pedido; o cupom sai como **DANFE NFC-e**, com a marca de homologação, itens, valor a pagar, forma de pagamento, número/série, chave de acesso em grupos de 4 dígitos e o **QR Code**.
+- [ ] O **QR Code** não sai cortado nas bordas e a **câmera do celular o lê** (com o provedor falso ele abre um endereço `fake.invalid`, o que é esperado). Se não ler, confira o contraste da fita e a densidade de impressão do driver.
+- [ ] Pedido **sem nota autorizada** (fiado, dado fiscal faltando) continua saindo como **CUPOM NÃO FISCAL**.
 
 ## 5. O que enviar de volta
 

@@ -9,7 +9,6 @@ import {
   UserIcon,
   ShoppingBagIcon,
   ReceiptPercentIcon,
-  PrinterIcon,
 } from '@heroicons/react/24/outline'
 import { getOrder, deliverOrder, cancelOrder, updateInvoice } from '@/api/orders'
 import { formatCurrency, formatDate, formatPayment, formatStatus, formatUnit } from '@/utils/format'
@@ -17,8 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import { usePrinterSettings } from '@/stores/printer'
-import { printOrderReceipt } from '@/hardware/printer/printOrder'
+import { PrintReceiptButton } from '@/components/fiscal/PrintReceiptButton'
 import { FiscalCard } from '@/components/fiscal/FiscalCard'
 import type { OrderStatus } from '@/types'
 
@@ -137,15 +135,7 @@ export default function OrderDetail() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {formatDate(order.created_at)} — {order.created_by_name}
           </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-3"
-            onClick={() => printOrderReceipt(order, usePrinterSettings.getState())}
-          >
-            <PrinterIcon className="w-4 h-4 mr-1.5" />
-            Reimprimir cupom
-          </Button>
+          <PrintReceiptButton order={order} reprint size="sm" className="mt-3" />
         </div>
 
         {order.status === 'pending' && (
