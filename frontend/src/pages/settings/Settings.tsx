@@ -22,8 +22,9 @@ import type { ModuleKey, User } from '@/types'
 import { formatDate } from '@/utils/format'
 import { ScaleTab } from './ScaleTab'
 import { PrinterTab } from './PrinterTab'
+import { FiscalTab } from './FiscalTab'
 
-type Tab = 'users' | 'categories' | 'scale' | 'printer'
+type Tab = 'users' | 'categories' | 'scale' | 'printer' | 'fiscal'
 
 interface UserFormData {
   name: string
@@ -508,11 +509,15 @@ export default function Settings() {
         <button className={tabClass('printer')} onClick={() => setActiveTab('printer')}>
           Impressora
         </button>
+        <button className={tabClass('fiscal')} onClick={() => setActiveTab('fiscal')}>
+          Fiscal
+        </button>
       </div>
 
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'scale' && <ScaleTab />}
       {activeTab === 'printer' && <PrinterTab />}
+      {activeTab === 'fiscal' && <FiscalTab />}
 
       {activeTab === 'users' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">

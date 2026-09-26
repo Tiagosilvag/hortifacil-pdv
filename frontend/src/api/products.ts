@@ -1,7 +1,8 @@
 import { api } from './client'
 import type { Product } from '@/types'
+import type { FiscalPayload } from '@/utils/fiscal'
 
-export interface ProductCreate {
+export interface ProductCreate extends FiscalPayload {
   name: string
   barcode?: string
   unit_type: string
