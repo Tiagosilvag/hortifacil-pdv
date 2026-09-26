@@ -24,6 +24,7 @@ import { useScale } from '@/hardware/scale/useScale'
 import { useBarcodeScanner } from '@/hardware/scanner/useBarcodeScanner'
 import { SingleFlight } from '@/hardware/scale/singleFlight'
 import { printOrderReceipt } from '@/hardware/printer/printOrder'
+import { FiscalStatusLine } from '@/components/fiscal/FiscalStatusLine'
 import { usePrinterSettings } from '@/stores/printer'
 import { addItem, changeQty } from './cart'
 import type { Customer, Order, Product } from '@/types'
@@ -267,7 +268,8 @@ export default function NewOrder() {
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Pedido #{lastOrder.number}</h2>
           <p className="text-slate-500 dark:text-slate-400 mb-2">Registrado com sucesso!</p>
-          <p className="text-3xl font-bold text-green-700 dark:text-green-400 mb-8">{formatCurrency(lastOrder.total)}</p>
+          <p className="text-3xl font-bold text-green-700 dark:text-green-400 mb-4">{formatCurrency(lastOrder.total)}</p>
+          <FiscalStatusLine order={lastOrder.order} />
           <Button
             variant="secondary"
             className="w-full mb-3"

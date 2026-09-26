@@ -19,6 +19,7 @@ import { getApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { usePrinterSettings } from '@/stores/printer'
 import { printOrderReceipt } from '@/hardware/printer/printOrder'
+import { FiscalCard } from '@/components/fiscal/FiscalCard'
 import type { OrderStatus } from '@/types'
 
 function statusVariant(status: OrderStatus): 'green' | 'slate' | 'red' | 'amber' {
@@ -233,6 +234,8 @@ export default function OrderDetail() {
             </div>
           </div>
 
+          <FiscalCard order={order} />
+
           {/* Nota Fiscal */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
@@ -240,7 +243,7 @@ export default function OrderDetail() {
                 <DocumentTextIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <h2 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Nota Fiscal</h2>
               </div>
-              {!invoiceEdit && (
+              {!invoiceEdit && order.fiscal_status !== 'authorized' && (
                 <button
                   onClick={openInvoiceEdit}
                   className="text-xs text-green-700 dark:text-green-400 hover:underline"
