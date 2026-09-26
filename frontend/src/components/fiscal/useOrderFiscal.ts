@@ -19,7 +19,9 @@ export function useOrderFiscal(order: Order) {
   const emissionEnabled = !!status?.enabled
   const polls = useRef(0)
 
-  const { data: current } = useQuery({
+  // `dataUpdatedAt` é lido de propósito: o React Query só re-renderiza quando muda uma propriedade LIDA, e enquanto a nota
+  // não assenta o pedido volta igual (mesmo `data`). Sem ler isto, a contagem de consultas acabaria sem ninguém perceber.
+  const { data: current, dataUpdatedAt } = useQuery({
     queryKey: ['order', order.id, 'fiscal'],
     queryFn: () => {
       polls.current += 1
@@ -37,5 +39,5 @@ export function useOrderFiscal(order: Order) {
   const fiscalInfo: FiscalPrintInfo | null = status?.issuer ? { issuer: status.issuer, environment: status.environment } : null
 
   // Erro ao consultar o estado da emissão conta como "pronto e desligado": o caixa não pode ficar esperando por isso.
-  return { latest, emissionEnabled, statusReady: !statusPending, settled, gaveUp, fiscalInfo }
+  return { latest, emissionEnabled, statusReady: !statusPending, settled, gaveUp, fiscalInfo, updatedAt: dataUpdatedAt }
 }

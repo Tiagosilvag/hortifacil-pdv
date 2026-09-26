@@ -34,4 +34,5 @@ Com a NFC-e **autorizada**, o botão de imprimir passa a ser **Imprimir cupom fi
 
 - **Impressão automática ao confirmar:** com a emissão fiscal ligada, ela espera a nota assentar (alguns segundos) para imprimir o documento certo; se a nota não assentar a tempo, imprime o cupom não fiscal. Sem emissão fiscal, imprime na hora, como antes.
 - **Dados da empresa** no cupom vêm de Configurações > Fiscal (o servidor os entrega a qualquer usuário logado em `GET /api/v1/fiscal/status`).
+- **Data e documento do consumidor:** o cupom usa a hora em que o servidor recebeu a autorização (não a data de emissão do XML, nem a data da autorização, que o layout oficial prevê) e o CPF/CNPJ do cliente **como está no cadastro hoje** (uma reimpressão depois de o cadastro mudar pode mostrar outro documento). Ambos se resolvem com o adaptador do provedor real, guardando esses dados no pedido.
 - **Ainda fora do cupom:** os **tributos aproximados** (Lei 12.741, que precisa da tabela IBPT por NCM) e o **endereço de consulta da SEFAZ** impresso por extenso (depende do provedor real). Confirmar com o contador antes de emitir em produção.
