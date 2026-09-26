@@ -129,6 +129,7 @@ def apply_result(order: Any, result: EmitResult, now: datetime | None = None) ->
 async def run_emission(order: Any, emission: Emission, provider: FiscalProvider) -> EmitResult:
     """Chama o provedor e aplica o resultado no pedido. Nunca levanta: falha do provedor deixa a nota pendente."""
     order.fiscal_attempts = (order.fiscal_attempts or 0) + 1
+    order.fiscal_reference = emission.payload["reference"]  # fixa: o cancelamento e a consulta usam a mesma
     for item in order.items:
         for field in FISCAL_FIELDS:
             setattr(item, field, emission.snapshots[item.product_id][field])

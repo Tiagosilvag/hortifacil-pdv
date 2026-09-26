@@ -13,7 +13,7 @@ from app.models.product import Product
 from app.models.receivable import Receivable, ReceivableStatus
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderInvoiceUpdate
-from app.services import customer_service
+from app.services import customer_service, fiscal_cancel
 
 
 async def create_order(
@@ -216,12 +216,15 @@ async def cancel_order(
             select(Order.fiscal_status, Order.fiscal_attempts).where(Order.id == order.id).with_for_update()
         )
     ).one()
-    if fiscal_status == "authorized" or (fiscal_status == "pending" and fiscal_attempts > 0):
-        # Cancelar a venda deixando a nota válida (ou talvez autorizada, se o provedor deu timeout) seria inconsistente.
-        # O cancelamento da NFC-e vem no C3; enquanto isso, "Tentar de novo" resolve o pendente.
+    if fiscal_status == "authorized":
+        # A NFC-e é cancelada primeiro. Se algo falhar (prazo, motivo, provedor, SEFAZ), levanta e o pedido NÃO é cancelado:
+        # cancelar a venda deixando a nota válida seria inconsistente.
+        await fiscal_cancel.cancel_for_order_service(db, order, current_user.name, reason)
+    elif fiscal_status == "pending" and fiscal_attempts > 0:
+        # O provedor pode ter autorizado a nota sem a resposta chegar (tempo esgotado): descobrir antes de cancelar.
         raise HTTPException(
             status_code=409,
-            detail="Este pedido tem NFC-e autorizada ou em processamento. O cancelamento da nota ainda não está disponível.",
+            detail='A NFC-e deste pedido está em processamento e pode já ter sido autorizada. Use "Consultar situação" na tela do pedido antes de cancelar.',
         )
 
     order.status = OrderStatus.cancelled

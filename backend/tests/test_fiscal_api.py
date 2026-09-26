@@ -58,7 +58,7 @@ class FakeDb:
     async def commit(self):
         pass
 
-    async def refresh(self, _obj):
+    async def refresh(self, _obj, attribute_names=None):
         pass
 
 
@@ -182,13 +182,20 @@ class TestOrders:
         return SimpleNamespace(id=uuid.uuid4(), status=OrderStatus.delivered, items=[], order_number=3,
                                payment_type=PaymentType.cash, payment_splits=None, customer_id=None, notes=None)
 
-    @pytest.mark.parametrize("fiscal_status,attempts", [("authorized", 1), ("pending", 2)])
-    def test_pedido_com_nfce_autorizada_ou_em_processamento_nao_pode_ser_cancelado_ainda(self, fiscal_status, attempts):
+    def test_nfce_em_processamento_bloqueia_o_cancelamento_e_manda_consultar_a_situacao(self):
         order = self.order_to_cancel()
-        db = FakeDb([(fiscal_status, attempts)])  # o estado REAL da nota, lido com trava, vale mais que o objeto em memória
+        db = FakeDb([("pending", 2)])  # o estado REAL da nota, lido com trava, vale mais que o objeto em memória
         with pytest.raises(HTTPException) as info:
             asyncio.run(order_service.cancel_order(db, order, user(UserRole.admin), "erro"))
-        assert info.value.status_code == 409 and "NFC-e" in info.value.detail
+        assert info.value.status_code == 409 and "Consultar situação" in info.value.detail
+        assert order.status == OrderStatus.delivered
+
+    def test_nfce_autorizada_sem_motivo_de_15_caracteres_nao_cancela_nem_chega_ao_provedor(self):
+        order = self.order_to_cancel()
+        db = FakeDb([("authorized", 1)])
+        with pytest.raises(HTTPException) as info:
+            asyncio.run(order_service.cancel_order(db, order, user(UserRole.admin), "erro"))
+        assert info.value.status_code == 422 and "15 caracteres" in info.value.detail
         assert order.status == OrderStatus.delivered
 
     @pytest.mark.parametrize("fiscal_status,attempts", [("not_required", 0), ("pending", 0), ("rejected", 1)])
