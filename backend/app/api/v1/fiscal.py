@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin
@@ -8,11 +8,11 @@ from app.core.config import settings as app_settings
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.fiscal import (
-    FiscalDefaultIn, FiscalDefaultOut, FiscalIssuerOut, FiscalSettingsIn, FiscalSettingsOut, FiscalStatusOut,
-    PendingProductOut,
+    CscIn, FiscalDefaultIn, FiscalDefaultOut, FiscalIssuerOut, FiscalSecretsOut, FiscalSettingsIn, FiscalSettingsOut,
+    FiscalStatusOut, PendingProductOut,
 )
 from app.schemas.order import OrderOut
-from app.services import fiscal_cancel, fiscal_retry, fiscal_service
+from app.services import fiscal_cancel, fiscal_retry, fiscal_secrets, fiscal_service
 from app.services.fiscal.provider import get_provider
 
 router = APIRouter(prefix="/fiscal", tags=["fiscal"])
@@ -98,3 +98,37 @@ async def retry_pending(db: AsyncSession = Depends(get_db), _: User = Depends(re
         return {"attempted": await fiscal_retry.retry_pending(db, provider)}
     except fiscal_service.EmissionDisabled:
         raise HTTPException(status_code=409, detail="Emissão fiscal desligada. Ligue em Configurações > Fiscal") from None
+
+
+@router.get("/secrets", response_model=FiscalSecretsOut)
+async def get_secrets(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    """O que está cadastrado no cofre (certificado, CSC), sem nenhum conteúdo secreto."""
+    return await fiscal_secrets.secrets_status(db)
+
+
+@router.put("/secrets/certificate", response_model=FiscalSecretsOut)
+async def put_certificate(
+    file: UploadFile = File(...), password: str = Form(...), db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)
+):
+    company = (await db.execute(fiscal_service.settings_query())).scalar_one_or_none()
+    pfx = await file.read(fiscal_secrets.MAX_PFX_BYTES + 1)
+    await fiscal_secrets.save_certificate(db, pfx, password, company.cnpj if company else None, admin.name)
+    return await fiscal_secrets.secrets_status(db)
+
+
+@router.delete("/secrets/certificate", response_model=FiscalSecretsOut)
+async def delete_certificate(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    await fiscal_secrets.delete_certificate(db)
+    return await fiscal_secrets.secrets_status(db)
+
+
+@router.put("/secrets/csc/{environment}", response_model=FiscalSecretsOut)
+async def put_csc(environment: str, body: CscIn, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    await fiscal_secrets.save_csc(db, environment, body.id, body.token, admin.name)
+    return await fiscal_secrets.secrets_status(db)
+
+
+@router.delete("/secrets/csc/{environment}", response_model=FiscalSecretsOut)
+async def delete_csc(environment: str, db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    await fiscal_secrets.delete_csc(db, environment)
+    return await fiscal_secrets.secrets_status(db)

@@ -219,3 +219,31 @@ class PendingProductOut(BaseModel):
     name: str
     category: str | None
     missing: list[str]
+
+
+class CertificateStatusOut(BaseModel):
+    """O que a tela sabe do certificado: só dados públicos (nunca o arquivo nem a senha)."""
+
+    configured: bool
+    subject: str | None = None
+    cnpj: str | None = None
+    not_after: datetime | None = None
+    days_left: int | None = None
+    level: Literal["ok", "warn", "critical"] | None = None
+
+
+class CscStatusOut(BaseModel):
+    configured: bool
+    id: str | None = None
+
+
+class FiscalSecretsOut(BaseModel):
+    vault_available: bool
+    certificate: CertificateStatusOut
+    csc_hml: CscStatusOut
+    csc_prod: CscStatusOut
+
+
+class CscIn(BaseModel):
+    id: str
+    token: str
