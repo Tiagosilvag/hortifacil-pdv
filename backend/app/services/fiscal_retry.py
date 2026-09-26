@@ -15,7 +15,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.order import Order
 from app.services import fiscal_service
 from app.services.fiscal.provider import FiscalProvider
-from app.services.fiscal_cancel import configured_provider
+from app.services.fiscal.registry import load_provider
 
 log = logging.getLogger(__name__)
 
@@ -74,10 +74,10 @@ async def run_retry_loop(interval_seconds: int) -> None:
     while True:
         await asyncio.sleep(interval_seconds)
         try:
-            provider = configured_provider()
-            if provider is None:
-                continue
             async with AsyncSessionLocal() as db:
+                provider = await load_provider(db)  # o modo pode mudar nas configurações a qualquer hora
+                if provider is None:
+                    continue
                 await retry_pending(db, provider)
         except asyncio.CancelledError:
             raise
@@ -88,8 +88,9 @@ async def run_retry_loop(interval_seconds: int) -> None:
 
 
 def start_retry_loop() -> "asyncio.Task[None] | None":
-    """Inicia o reenvio automático se houver provedor e intervalo configurados; devolve a tarefa (para cancelar ao desligar)."""
+    """Inicia o reenvio automático se o intervalo for maior que zero; devolve a tarefa (para cancelar ao desligar).
+    Cada ciclo confere o modo nas configurações: sem modo de emissão disponível, o ciclo não faz nada."""
     interval = app_settings.FISCAL_RETRY_INTERVAL_SECONDS
-    if interval <= 0 or configured_provider() is None:
+    if interval <= 0:
         return None
     return asyncio.create_task(run_retry_loop(interval))

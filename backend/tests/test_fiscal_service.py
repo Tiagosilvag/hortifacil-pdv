@@ -16,6 +16,7 @@ from fastapi import HTTPException  # noqa: E402
 
 from app.models.fiscal import FiscalEvent  # noqa: E402
 from app.services import fiscal_service as svc  # noqa: E402
+from app.services.fiscal import registry  # noqa: E402
 from app.services.fiscal.fake import FakeFiscalProvider  # noqa: E402
 from app.services.fiscal.rules import FISCAL_FIELDS  # noqa: E402
 
@@ -237,23 +238,39 @@ class TestEmitOrder:
         assert run(svc.emit_order(self.db_for(None, fiscal_settings()), uuid.uuid4(), FakeFiscalProvider(), "M")) is None
 
 
-class TestEntryPoints:
-    def test_tentar_de_novo_sem_provedor_e_409(self, monkeypatch):
-        monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "none")
-        with pytest.raises(HTTPException) as info:
-            run(svc.retry_emission(FakeDb(), uuid.uuid4(), "Maria"))
-        assert info.value.status_code == 409 and "não configurada" in info.value.detail
+def mode_row(mode, enabled=True):
+    return SimpleNamespace(mode=mode, enabled=enabled)
 
-    def test_tentar_de_novo_com_provedor_invalido_ou_falso_em_producao_e_409_e_nao_500(self, monkeypatch):
-        for name, environment in (("fake", "production"), ("nuvemfiscal", "development")):
-            monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", name)
-            monkeypatch.setattr(svc.app_settings, "ENVIRONMENT", environment)
-            with pytest.raises(HTTPException) as info:
-                run(svc.retry_emission(FakeDb(), uuid.uuid4(), "Maria"))
-            assert info.value.status_code == 409 and "não configurada" in info.value.detail
+
+class TestEntryPoints:
+    """O provedor vem do MODO salvo nas configurações (banco). Só em desenvolvimento FISCAL_PROVIDER=fake o força."""
+
+    @pytest.fixture(autouse=True)
+    def dev_without_shortcut(self, monkeypatch):
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "none")
+        monkeypatch.setattr(registry.app_settings, "ENVIRONMENT", "development")
+
+    @pytest.mark.parametrize("row", [None, "none", "sefaz_direto"])
+    def test_tentar_de_novo_sem_modo_de_emissao_disponivel_e_409(self, row):
+        rows = [] if row is None else [mode_row(row)]
+        with pytest.raises(HTTPException) as info:
+            run(svc.retry_emission(FakeDb(rows), uuid.uuid4(), "Maria"))  # "sefaz_direto" ainda não tem adaptador (E2)
+        assert info.value.status_code == 409 and "sem modo de emissão" in info.value.detail
+
+    def test_o_atalho_de_desenvolvimento_so_vale_em_desenvolvimento(self, monkeypatch):
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "ENVIRONMENT", "production")
+        with pytest.raises(HTTPException) as info:
+            run(svc.retry_emission(FakeDb([mode_row("none")]), uuid.uuid4(), "Maria"))
+        assert info.value.status_code == 409
+
+    def test_o_modo_salvo_no_banco_escolhe_o_provedor(self):
+        order = make_order([order_item(BANANA)])
+        db = FakeDb([mode_row("fake")], [order], [fiscal_settings()], [BANANA], [default()])  # 1ª consulta: o modo
+        assert run(svc.retry_emission(db, order.id, "Maria")) is order and order.fiscal_status == "authorized"
 
     def test_tentar_de_novo_com_emissao_desligada_e_409(self, monkeypatch):
-        monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")  # atalho: provedor sem consultar o modo
         order = make_order([order_item(BANANA)])
         db = FakeDb([order], [fiscal_settings(enabled=False)])
         with pytest.raises(HTTPException) as info:
@@ -261,23 +278,31 @@ class TestEntryPoints:
         assert info.value.status_code == 409 and "desligada" in info.value.detail
 
     def test_tentar_de_novo_em_pedido_inexistente_e_404(self, monkeypatch):
-        monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")
         with pytest.raises(HTTPException) as info:
             run(svc.retry_emission(FakeDb([]), uuid.uuid4(), "Maria"))
         assert info.value.status_code == 404
 
     def test_segundo_plano_nunca_levanta_mesmo_com_o_banco_fora(self, monkeypatch):
-        monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "fake")
-
         def broken_session():
             raise ConnectionError("banco fora")
 
         monkeypatch.setattr(svc, "AsyncSessionLocal", broken_session)
         run(svc.emit_in_background(uuid.uuid4(), "Maria"))  # não levanta
 
-    def test_segundo_plano_com_provedor_desligado_nem_abre_o_banco(self, monkeypatch):
-        monkeypatch.setattr(svc.app_settings, "FISCAL_PROVIDER", "none")
-        monkeypatch.setattr(svc, "AsyncSessionLocal", lambda: pytest.fail("não deveria abrir o banco"))
+    def test_segundo_plano_sem_modo_de_emissao_nao_emite(self, monkeypatch):
+        class Session:
+            async def __aenter__(self):
+                return FakeDb([mode_row("none")])
+
+            async def __aexit__(self, *exc):
+                return False
+
+        async def must_not_emit(*args, **kwargs):
+            raise AssertionError("não deveria emitir")
+
+        monkeypatch.setattr(svc, "AsyncSessionLocal", Session)
+        monkeypatch.setattr(svc, "emit_order", must_not_emit)
         run(svc.emit_in_background(uuid.uuid4(), "Maria"))
 
 

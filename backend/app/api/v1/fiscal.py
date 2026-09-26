@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin
-from app.core.config import settings as app_settings
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.fiscal import (
@@ -13,22 +12,21 @@ from app.schemas.fiscal import (
 )
 from app.schemas.order import OrderOut
 from app.services import fiscal_cancel, fiscal_retry, fiscal_secrets, fiscal_service
-from app.services.fiscal.provider import get_provider
+from app.services.fiscal.registry import effective_mode, load_provider, provider_for_settings
 
 router = APIRouter(prefix="/fiscal", tags=["fiscal"])
 
 
 @router.get("/status", response_model=FiscalStatusOut)
 async def fiscal_status(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
-    """Para o PDV: a emissão está ligada, há provedor configurado e em que ambiente."""
+    """Para o PDV: a emissão está ligada, o modo de emissão escolhido tem adaptador pronto e em que ambiente."""
     row = (await db.execute(fiscal_service.settings_query())).scalar_one_or_none()
-    try:
-        configured = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT) is not None
-    except (RuntimeError, ValueError):
-        configured = False
+    configured = provider_for_settings(row) is not None
     return FiscalStatusOut(
         enabled=bool(row and row.enabled) and configured,
         provider_configured=configured,
+        mode=effective_mode(row.mode if row else None),
+        mode_available=configured,
         environment=row.environment if row else "homologacao",
         issuer=FiscalIssuerOut.model_validate(row) if row and row.cnpj else None,
     )
@@ -79,9 +77,9 @@ async def refresh_order(
     order_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """"Consultar situação": pergunta ao provedor o que houve com a nota (útil depois de um tempo esgotado)."""
-    provider = fiscal_cancel.configured_provider()
+    provider = await load_provider(db)
     if provider is None:
-        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
+        raise HTTPException(status_code=409, detail="Emissão fiscal sem modo de emissão disponível")
     order = await fiscal_cancel.refresh_order(db, order_id, provider, current_user.name)
     if order is None:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
@@ -91,9 +89,9 @@ async def refresh_order(
 @router.post("/retry-pending")
 async def retry_pending(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
     """Reenvia agora as NFC-e pendentes por falha do provedor (o servidor também faz isso sozinho, de tempos em tempos)."""
-    provider = fiscal_cancel.configured_provider()
+    provider = await load_provider(db)
     if provider is None:
-        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
+        raise HTTPException(status_code=409, detail="Emissão fiscal sem modo de emissão disponível")
     try:
         return {"attempted": await fiscal_retry.retry_pending(db, provider)}
     except fiscal_service.EmissionDisabled:

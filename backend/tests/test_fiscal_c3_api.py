@@ -18,7 +18,8 @@ from app.core.database import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.fiscal import FiscalSettings  # noqa: E402
 from app.models.user import UserRole  # noqa: E402
-from app.services import fiscal_cancel, fiscal_retry  # noqa: E402
+from app.services import fiscal_retry  # noqa: E402
+from app.services.fiscal import registry  # noqa: E402
 
 
 class FakeDb:
@@ -63,22 +64,22 @@ COMPLETE = dict(cnpj="11222333000181", ie="123456789", legal_name="EMPRESA TESTE
 
 class TestRoutes:
     def test_consultar_situacao_sem_provedor_e_409(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "none")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "none")
         response = client(UserRole.operator).post(f"/api/v1/fiscal/orders/{uuid.uuid4()}/refresh")
-        assert response.status_code == 409 and "não configurada" in response.json()["detail"]
+        assert response.status_code == 409 and "sem modo de emissão" in response.json()["detail"]
 
     def test_consultar_situacao_de_pedido_inexistente_e_404(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")
         response = client(UserRole.operator, db=FakeDb(None)).post(f"/api/v1/fiscal/orders/{uuid.uuid4()}/refresh")
         assert response.status_code == 404
 
     def test_reenviar_pendentes_so_para_administrador(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "none")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "none")
         assert client(UserRole.operator).post("/api/v1/fiscal/retry-pending").status_code == 403
         assert client(UserRole.admin).post("/api/v1/fiscal/retry-pending").status_code == 409  # sem provedor
 
     def test_reenviar_pendentes_com_a_emissao_desligada_e_409_e_nao_zero_pendentes(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")
 
         async def disabled(db, provider, now=None):
             from app.services.fiscal_service import EmissionDisabled
@@ -89,7 +90,7 @@ class TestRoutes:
         assert response.status_code == 409 and "desligada" in response.json()["detail"]
 
     def test_reenviar_pendentes_com_provedor_devolve_quantos_tentou(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_cancel.app_settings, "FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "fake")
 
         async def fake_retry(db, provider, now=None):
             return 3
@@ -109,7 +110,6 @@ class TestSettingsRoutes:
         return FiscalSettings(**base)
 
     def test_ida_para_producao_sem_as_conferencias_e_422_com_a_lista(self, client, monkeypatch):
-        monkeypatch.setattr("app.services.fiscal_golive.app_settings.FISCAL_PROVIDER", "none")
         payload = {**COMPLETE, "enabled": True, "environment": "producao", "production_confirmation": False}
         response = client(db=FakeDb(self.row(), 0)).put("/api/v1/fiscal/settings", json=payload)
         assert response.status_code == 422 and "Para ir para produção:" in response.text

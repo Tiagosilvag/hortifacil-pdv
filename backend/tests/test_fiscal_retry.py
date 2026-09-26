@@ -118,16 +118,11 @@ class TestRetryPending:
 
 
 class TestLoop:
-    def test_sem_provedor_ou_com_intervalo_zero_nao_inicia(self, monkeypatch):
-        monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "none")
-        monkeypatch.setattr(ops.app_settings, "FISCAL_RETRY_INTERVAL_SECONDS", 120)
-        assert ops.start_retry_loop() is None
-        monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "fake")
+    def test_com_intervalo_zero_nao_inicia(self, monkeypatch):
         monkeypatch.setattr(ops.app_settings, "FISCAL_RETRY_INTERVAL_SECONDS", 0)
         assert ops.start_retry_loop() is None
 
-    def test_com_provedor_e_intervalo_inicia_uma_tarefa_que_pode_ser_cancelada(self, monkeypatch):
-        monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "fake")
+    def test_com_intervalo_inicia_uma_tarefa_que_pode_ser_cancelada(self, monkeypatch):
         monkeypatch.setattr(ops.app_settings, "FISCAL_RETRY_INTERVAL_SECONDS", 120)
 
         async def scenario():
@@ -138,6 +133,34 @@ class TestLoop:
                 await task
 
         run(scenario())
+
+    def test_sem_modo_de_emissao_disponivel_o_ciclo_nao_faz_nada_e_o_laco_segue(self, monkeypatch):
+        from app.services.fiscal import registry
+
+        monkeypatch.setattr(registry.app_settings, "FISCAL_PROVIDER", "none")
+        sleeps, calls = [], []
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 3:
+                raise asyncio.CancelledError
+
+        class Session:
+            async def __aenter__(self):
+                return FakeDb(settings=SimpleNamespace(enabled=True, environment="homologacao", mode="none"))
+
+            async def __aexit__(self, *exc):
+                return False
+
+        async def must_not_run(db, provider, now=None):
+            calls.append(1)
+
+        monkeypatch.setattr(ops.asyncio, "sleep", fake_sleep)
+        monkeypatch.setattr(ops, "AsyncSessionLocal", Session)
+        monkeypatch.setattr(ops, "retry_pending", must_not_run)
+        with pytest.raises(asyncio.CancelledError):
+            run(ops.run_retry_loop(120))
+        assert calls == [] and sleeps == [120, 120, 120]
 
     def test_emissao_desligada_no_ciclo_nao_e_erro_e_o_laco_segue(self, monkeypatch):
         monkeypatch.setattr(ops.app_settings, "FISCAL_PROVIDER", "fake")

@@ -112,35 +112,45 @@ class TestStatus:
     ISSUER = dict(legal_name="EMPRESA TESTE LTDA", cnpj="11222333000181", ie="123456789", street="Rua Exemplo",
                   number="100", district="Centro", city="Recife", state="PE", zip_code="50000000")
 
-    def row(self, enabled=True, environment="homologacao", **issuer):
-        return SimpleNamespace(enabled=enabled, environment=environment, **{**self.ISSUER, **issuer})
+    def row(self, enabled=True, environment="homologacao", mode="none", **issuer):
+        return SimpleNamespace(enabled=enabled, environment=environment, mode=mode, **{**self.ISSUER, **issuer})
 
     def test_desligada_por_padrao(self, client, monkeypatch):
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
         body = client(db=FakeDb([])).get("/api/v1/fiscal/status").json()
-        assert body == {"enabled": False, "provider_configured": False, "environment": "homologacao", "issuer": None}
+        assert body == {"enabled": False, "provider_configured": False, "mode": "none", "mode_available": False,
+                        "environment": "homologacao", "issuer": None}
 
     def test_ligada_so_com_provedor_configurado(self, client, monkeypatch):
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
         assert client(db=FakeDb([self.row()])).get("/api/v1/fiscal/status").json()["enabled"] is False
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "fake")
         body = client(db=FakeDb([self.row(environment="producao")])).get("/api/v1/fiscal/status").json()
         assert body["enabled"] is True and body["provider_configured"] is True and body["environment"] == "producao"
+        assert body["mode"] == "fake"  # em desenvolvimento o atalho FISCAL_PROVIDER=fake força o provedor falso
         assert body["issuer"] == {**self.ISSUER}
 
+    def test_o_modo_vem_do_banco_e_o_direto_ainda_nao_tem_adaptador(self, client, monkeypatch):
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.ENVIRONMENT", "development")
+        direct = client(db=FakeDb([self.row(mode="sefaz_direto")])).get("/api/v1/fiscal/status").json()
+        assert direct["mode"] == "sefaz_direto" and direct["mode_available"] is False and direct["enabled"] is False
+        fake = client(db=FakeDb([self.row(mode="fake")])).get("/api/v1/fiscal/status").json()
+        assert fake["mode"] == "fake" and fake["mode_available"] is True and fake["enabled"] is True
+
     def test_qualquer_usuario_ve_a_empresa_para_imprimir_o_cupom_fiscal(self, client, monkeypatch):
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
         body = client(UserRole.operator, db=FakeDb([self.row()])).get("/api/v1/fiscal/status").json()
         assert body["issuer"]["legal_name"] == "EMPRESA TESTE LTDA" and body["issuer"]["cnpj"] == "11222333000181"
 
     def test_sem_cnpj_cadastrado_nao_ha_empresa_emitente(self, client, monkeypatch):
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
         body = client(db=FakeDb([self.row(cnpj=None)])).get("/api/v1/fiscal/status").json()
         assert body["issuer"] is None
 
     def test_provedor_falso_em_producao_conta_como_nao_configurado_e_nao_derruba_a_tela(self, client, monkeypatch):
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.FISCAL_PROVIDER", "fake")
-        monkeypatch.setattr("app.api.v1.fiscal.app_settings.ENVIRONMENT", "production")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "fake")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.ENVIRONMENT", "production")
         body = client(db=FakeDb([self.row()])).get("/api/v1/fiscal/status").json()
         assert body["enabled"] is False and body["provider_configured"] is False
 
@@ -212,6 +222,6 @@ class TestOrders:
         assert info.value.status_code == 409 and order.invoice_key == "0" * 44
 
     def test_tentar_de_novo_sem_provedor_e_409(self, client, monkeypatch):
-        monkeypatch.setattr(fiscal_service.app_settings, "FISCAL_PROVIDER", "none")
+        monkeypatch.setattr("app.services.fiscal.registry.app_settings.FISCAL_PROVIDER", "none")
         response = client(UserRole.operator).post(f"/api/v1/fiscal/orders/{uuid.uuid4()}/emit")
         assert response.status_code == 409

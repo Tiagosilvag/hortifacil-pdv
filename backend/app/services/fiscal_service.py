@@ -14,25 +14,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings as app_settings
 from app.core.database import AsyncSessionLocal
 from app.models.fiscal import FiscalDefault, FiscalEvent, FiscalSettings
 from app.models.order import Order
 from app.models.product import Product
 from app.schemas.fiscal import FiscalDefaultIn, FiscalSettingsIn
 from app.services.fiscal.payload import build_nfce_payload
-from app.services.fiscal.provider import EmitResult, FiscalProvider, get_provider
+from app.services.fiscal.provider import EmitResult, FiscalProvider
+from app.services.fiscal.registry import load_provider, settings_query
 from app.services.fiscal.rules import FISCAL_FIELDS, merge_fiscal, missing_fields
 from app.services.fiscal_golive import go_live_problems
 
 log = logging.getLogger(__name__)
 
 MAX_LISTED_PRODUCTS = 3
-
-
-def settings_query():
-    """Consulta única da linha de configuração; a ordem fixa garante que todos leiam a mesma linha."""
-    return select(FiscalSettings).order_by(FiscalSettings.id).limit(1)
 
 
 class EmissionDisabled(Exception):
@@ -178,10 +173,10 @@ async def emit_order(db: AsyncSession, order_id: uuid.UUID, provider: FiscalProv
 async def emit_in_background(order_id: uuid.UUID, user_name: str) -> None:
     """Roda depois que a resposta do pedido já foi enviada. Nunca levanta: o pedido já está salvo."""
     try:
-        provider = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT)
-        if provider is None:
-            return
         async with AsyncSessionLocal() as db:
+            provider = await load_provider(db)  # o modo vem das configurações (banco)
+            if provider is None:
+                return
             await emit_order(db, order_id, provider, user_name)
     except EmissionDisabled:
         return
@@ -190,12 +185,9 @@ async def emit_in_background(order_id: uuid.UUID, user_name: str) -> None:
 
 
 async def retry_emission(db: AsyncSession, order_id: uuid.UUID, user_name: str) -> Order:
-    try:
-        provider = get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT)
-    except (RuntimeError, ValueError):
-        provider = None
+    provider = await load_provider(db)
     if provider is None:
-        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor")
+        raise HTTPException(status_code=409, detail="Emissão fiscal sem modo de emissão disponível: escolha e configure em Configurações > Fiscal")
     try:
         order = await emit_order(db, order_id, provider, user_name)
     except EmissionDisabled:

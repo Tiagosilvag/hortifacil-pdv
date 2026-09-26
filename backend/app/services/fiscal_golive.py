@@ -1,28 +1,36 @@
 """Conferências para mudar a emissão fiscal de homologação para produção. Produção emite notas de verdade, com valor fiscal."""
+import re
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings as app_settings
 from app.models.order import Order
-from app.services.fiscal.provider import get_provider
-
-# Provedores que não emitem nota de verdade: nenhum deles serve para produção.
-NOT_REAL_PROVIDERS = ("", "none", "fake")
+from app.services import fiscal_secrets
+from app.services.fiscal.registry import REAL_MODES, mode_available
 
 
 async def go_live_problems(db: AsyncSession, data: Any) -> list[str]:
     """O que ainda impede a ida para produção (lista vazia = pode ir). `data` é o FiscalSettingsIn que está sendo salvo."""
     problems: list[str] = []
 
-    provider_name = (app_settings.FISCAL_PROVIDER or "").strip().lower()
-    try:
-        real = provider_name not in NOT_REAL_PROVIDERS and get_provider(provider_name, app_settings.ENVIRONMENT) is not None
-    except (RuntimeError, ValueError):
-        real = False
-    if not real:
-        problems.append("o servidor ainda não tem um provedor fiscal real configurado (FISCAL_PROVIDER)")
+    if data.mode not in REAL_MODES:
+        problems.append("escolha um modo de emissão real (SEFAZ direto): o desligado e o de teste não emitem nota de verdade")
+    elif not mode_available(data.mode):
+        problems.append("o modo escolhido ainda não está disponível neste sistema (em desenvolvimento)")
+    elif data.mode == "sefaz_direto":
+        status = await fiscal_secrets.secrets_status(db)
+        certificate = status["certificate"]
+        if not certificate["configured"]:
+            problems.append("cadastre o certificado digital A1")
+        else:
+            if certificate["days_left"] < 0:
+                problems.append("o certificado digital venceu")
+            company_cnpj = re.sub(r"\D", "", data.cnpj or "")
+            if certificate["cnpj"] and company_cnpj and certificate["cnpj"] != company_cnpj:
+                problems.append("o CNPJ do certificado é diferente do CNPJ da empresa")
+        if not status["csc_prod"]["configured"]:
+            problems.append("cadastre o CSC de produção")
 
     if not data.enabled:
         problems.append("ligue a emissão e preencha todos os dados da empresa")

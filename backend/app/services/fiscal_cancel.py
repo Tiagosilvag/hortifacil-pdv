@@ -12,25 +12,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings as app_settings
 from app.models.fiscal import FiscalEvent
 from app.models.order import Order
 from app.services import fiscal_service
-from app.services.fiscal.provider import FiscalProvider, ProviderUnavailable, get_provider
+from app.services.fiscal.provider import FiscalProvider, ProviderUnavailable
+from app.services.fiscal.registry import provider_for_settings
 
 log = logging.getLogger(__name__)
 
 # A SEFAZ exige de 15 a 255 caracteres no motivo do cancelamento de uma NFC-e.
 CANCEL_REASON_MIN = 15
 CANCEL_REASON_MAX = 255
-
-
-def configured_provider() -> FiscalProvider | None:
-    """O provedor configurado no servidor, ou None (desligado, ou um valor que não pode ser usado neste ambiente)."""
-    try:
-        return get_provider(app_settings.FISCAL_PROVIDER, app_settings.ENVIRONMENT)
-    except (RuntimeError, ValueError):
-        return None
 
 
 def validate_cancel_reason(reason: str | None) -> str:
@@ -109,9 +101,9 @@ async def cancel_for_order_service(db: AsyncSession, order: Any, user_name: str,
     # Outra sessão pode ter mudado a nota depois de o pedido ser lido: recarrega só as colunas fiscais.
     await db.refresh(order, attribute_names=["fiscal_status", "fiscal_emitted_at", "fiscal_reference"])
     fiscal_settings = (await db.execute(fiscal_service.settings_query())).scalar_one_or_none()
-    provider = configured_provider()
+    provider = provider_for_settings(fiscal_settings)
     if provider is None or fiscal_settings is None:
-        raise HTTPException(status_code=409, detail="Emissão fiscal não configurada neste servidor: não dá para cancelar a NFC-e deste pedido.")
+        raise HTTPException(status_code=409, detail="Emissão fiscal sem modo de emissão disponível: não dá para cancelar a NFC-e deste pedido.")
     await cancel_nfce(db, order, provider, fiscal_settings, text, user_name)
 
 

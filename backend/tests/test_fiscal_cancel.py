@@ -197,14 +197,14 @@ class TestCancelForOrderService:
         assert info.value.status_code == 422 and db.refreshed == []
 
     def test_sem_provedor_configurado_nao_cancela(self, monkeypatch):
-        monkeypatch.setattr(ops, "configured_provider", lambda: None)
+        monkeypatch.setattr(ops, "provider_for_settings", lambda row: None)
         with pytest.raises(HTTPException) as info:
             run(ops.cancel_for_order_service(FakeDb([settings]), order(), "Maria", REASON))
-        assert info.value.status_code == 409 and "não configurada" in info.value.detail
+        assert info.value.status_code == 409 and "sem modo de emissão" in info.value.detail
 
     def test_recarrega_o_estado_da_nota_antes_de_decidir(self, monkeypatch):
         fake = provider_with_note()  # criado antes: o laço de eventos do teste ainda não está rodando
-        monkeypatch.setattr(ops, "configured_provider", lambda: fake)
+        monkeypatch.setattr(ops, "provider_for_settings", lambda row: fake)
         db, o = FakeDb([settings]), order(fiscal_emitted_at=datetime.now(timezone.utc))  # dentro do prazo, pelo relógio de verdade
         run(ops.cancel_for_order_service(db, o, "Maria", REASON))
         assert db.refreshed == [(o, ["fiscal_status", "fiscal_emitted_at", "fiscal_reference"])]
@@ -254,7 +254,7 @@ class TestCancelOrderEndToEnd:
         from app.models.user import UserRole
         from app.services import order_service
 
-        monkeypatch.setattr(ops, "configured_provider", lambda: fake)
+        monkeypatch.setattr(ops, "provider_for_settings", lambda row: fake)
         o.status, o.payment_type, o.payment_splits, o.customer_id, o.notes = OrderStatus.delivered, PaymentType.cash, None, None, None
         db = FakeDb([("authorized", 1, OrderStatus.delivered)], [settings])  # 1ª consulta: o estado real da nota, lido com trava; 2ª: a configuração fiscal
         admin = SimpleNamespace(id=uuid.uuid4(), name="Maria", role=UserRole.admin)

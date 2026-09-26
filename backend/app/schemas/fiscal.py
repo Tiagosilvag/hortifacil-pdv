@@ -209,6 +209,9 @@ class FiscalStatusOut(BaseModel):
 
     enabled: bool
     provider_configured: bool
+    # Modo em vigor (none | sefaz_direto | fake) e se o adaptador dele já existe neste sistema.
+    mode: str = "none"
+    mode_available: bool = False
     environment: str
     issuer: FiscalIssuerOut | None = None
 
