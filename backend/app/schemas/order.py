@@ -97,6 +97,13 @@ class OrderOut(BaseModel):
     invoice_number: str | None
     invoice_series: str | None
     invoice_key: str | None
+    fiscal_status: str = "not_required"
+    fiscal_protocol: str | None = None
+    fiscal_qr_url: str | None = None
+    fiscal_xml_url: str | None = None
+    fiscal_emitted_at: datetime | None = None
+    fiscal_error: str | None = None
+    fiscal_attempts: int = 0
     created_at: datetime
     created_by_name: str
     items: list[OrderItemOut]
@@ -115,6 +122,7 @@ class OrderListOut(BaseModel):
     payment_splits: list[Any] | None = None
     status: OrderStatus
     notes: str | None
+    fiscal_status: str = "not_required"
     created_at: datetime
     created_by_name: str
     items: list[OrderItemOut]

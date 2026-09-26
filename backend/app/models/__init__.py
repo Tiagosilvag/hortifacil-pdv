@@ -3,6 +3,7 @@ from app.models.customer import Customer, CustomerType
 from app.models.product import Product, UnitType
 from app.models.order import Order, OrderItem, OrderStatus, PaymentType
 from app.models.receivable import Receivable, ReceivableStatus
+from app.models.fiscal import FiscalDefault, FiscalEvent, FiscalSettings
 
 __all__ = [
     "User", "UserRole",
@@ -10,4 +11,5 @@ __all__ = [
     "Product", "UnitType",
     "Order", "OrderItem", "OrderStatus", "PaymentType",
     "Receivable", "ReceivableStatus",
+    "FiscalDefault", "FiscalEvent", "FiscalSettings",
 ]

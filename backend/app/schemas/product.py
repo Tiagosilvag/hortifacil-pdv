@@ -5,9 +5,10 @@ from decimal import Decimal
 from pydantic import BaseModel, field_validator
 
 from app.models.product import UnitType
+from app.schemas.fiscal import FiscalFieldsIn, FiscalFieldsOut
 
 
-class ProductCreate(BaseModel):
+class ProductCreate(FiscalFieldsIn):
     name: str
     barcode: str | None = None
     unit_type: UnitType = UnitType.unit
@@ -24,7 +25,7 @@ class ProductCreate(BaseModel):
         return v
 
 
-class ProductUpdate(BaseModel):
+class ProductUpdate(FiscalFieldsIn):
     name: str | None = None
     barcode: str | None = None
     unit_type: UnitType | None = None
@@ -42,7 +43,7 @@ class ProductUpdate(BaseModel):
         return v
 
 
-class ProductOut(BaseModel):
+class ProductOut(FiscalFieldsOut):
     model_config = {"from_attributes": True}
 
     id: uuid.UUID
