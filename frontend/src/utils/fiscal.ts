@@ -191,11 +191,23 @@ export function modeOptions(current: FiscalMode, development: boolean): ModeOpti
 
 /** Aviso sob o seletor de modo: o que esse modo faz hoje. `null` quando não há nada a avisar. */
 export function modeNotice(mode: FiscalMode, available: boolean): string | null {
-  if (mode === 'none') return 'Com a emissão desligada, nenhuma NFC-e é emitida e o PDV funciona como sempre.'
+  if (mode === 'none') {
+    return 'Com a emissão desligada, nenhuma NFC-e nova é emitida e o PDV funciona como sempre. Atenção: um pedido que já tem NFC-e autorizada só pode ser cancelado com o modo que a emitiu ativo.'
+  }
   if (mode === 'sefaz_direto' && !available) {
     return 'O envio direto à SEFAZ ainda está em desenvolvimento neste sistema: dá para cadastrar o certificado e o CSC agora, mas nenhuma nota é emitida neste modo.'
   }
   if (mode === 'fake') return 'Modo de teste: as notas são simuladas e não existem na SEFAZ.'
+  return null
+}
+
+/** O servidor recusa .pfx acima de 1 MB (e o nginx corta antes, sem mensagem útil): a tela avisa antes de enviar. */
+export const MAX_CERTIFICATE_BYTES = 1_000_000
+
+export function certificateFileProblem(file: { size: number } | null): string | null {
+  if (!file) return null
+  if (file.size === 0) return 'O arquivo está vazio.'
+  if (file.size > MAX_CERTIFICATE_BYTES) return 'O arquivo passa de 1 MB: confira se é o certificado A1 (.pfx), e não outro arquivo.'
   return null
 }
 

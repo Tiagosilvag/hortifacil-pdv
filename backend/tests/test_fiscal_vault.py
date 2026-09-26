@@ -32,11 +32,17 @@ class TestChaveMestra:
             monkeypatch.setattr(vault.app_settings, "FISCAL_SECRET_KEY", bad)
             assert vault.vault_available() is False, bad
 
-    def test_aceita_base64_padrao_e_urlsafe(self, monkeypatch):
+    def test_aceita_base64_padrao_e_urlsafe_com_preenchimento(self, monkeypatch):
         raw = bytes(range(200, 232))
-        for text in (base64.b64encode(raw).decode(), base64.urlsafe_b64encode(raw).decode().rstrip("=")):
+        for text in (base64.b64encode(raw).decode(), base64.urlsafe_b64encode(raw).decode()):
             monkeypatch.setattr(vault.app_settings, "FISCAL_SECRET_KEY", text)
             assert vault.decrypt("csc", vault.encrypt("csc", b"ok")) == b"ok"
+
+    def test_frase_escolhida_a_mao_nao_vira_chave(self, monkeypatch):
+        # 43 caracteres do alfabeto urlsafe, sem o preenchimento: antes decodificava para 32 bytes de baixa entropia
+        for weak in ("minha-senha-do-cofre-que-eu-inventei-agora1", "a" * 43, "a" * 44):
+            monkeypatch.setattr(vault.app_settings, "FISCAL_SECRET_KEY", weak)
+            assert vault.vault_available() is False, weak
 
 
 class TestCifra:

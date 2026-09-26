@@ -53,10 +53,12 @@ def _cnpj_from(cert: x509.Certificate) -> str | None:
 
 def inspect_pfx(data: bytes, password: str) -> CertInfo:
     """Abre o .pfx e devolve os dados públicos do certificado. Levanta CertificateError com mensagem em português."""
+    if data[:1] != b"\x30":  # todo .pfx (PKCS#12) é uma estrutura DER que começa por SEQUENCE (0x30)
+        raise CertificateError("O arquivo enviado não é um certificado .pfx (A1).")
     try:
         key, cert, _ = pkcs12.load_key_and_certificates(data, password.encode("utf-8"))
     except (ValueError, TypeError):
-        raise CertificateError("Não foi possível abrir o certificado: confira a senha e se o arquivo é um .pfx (A1).") from None
+        raise CertificateError("Não foi possível abrir o certificado: a senha está incorreta ou o arquivo está corrompido.") from None
     if cert is None or key is None:
         raise CertificateError("O arquivo não contém o certificado com a chave privada (é preciso um A1 completo).")
     name = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)

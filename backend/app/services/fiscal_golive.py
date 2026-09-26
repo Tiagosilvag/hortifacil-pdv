@@ -7,7 +7,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order import Order
 from app.services import fiscal_secrets
+from app.services.fiscal import certificate, vault
 from app.services.fiscal.registry import REAL_MODES, mode_available
+
+
+async def _direct_mode_problems(db: AsyncSession, data: Any) -> list[str]:
+    """Modo direto: não basta o cadastro existir (a tela só vê os dados públicos); o cofre precisa abrir e o certificado precisa servir."""
+    if not vault.vault_available():
+        return ["a chave mestra dos segredos (FISCAL_SECRET_KEY) não está configurada no servidor: sem ela o certificado e o CSC não abrem"]
+    problems: list[str] = []
+    try:
+        loaded = await fiscal_secrets.load_certificate(db)
+    except vault.VaultUnavailable:
+        problems.append("o certificado digital guardado não abre (a chave mestra mudou?): cadastre-o de novo")
+    else:
+        if loaded is None:
+            problems.append("cadastre o certificado digital A1")
+        else:
+            try:
+                info = certificate.inspect_pfx(*loaded)
+            except certificate.CertificateError as exc:
+                problems.append(f"o certificado digital guardado não serve: {exc}")
+            else:
+                company_cnpj = re.sub(r"\D", "", data.cnpj or "")
+                if info.cnpj is None:
+                    problems.append("o certificado digital não traz o CNPJ da empresa: use um e-CNPJ A1")
+                problems += certificate.problems_for_company(info, company_cnpj if info.cnpj is not None else None)
+    try:
+        csc = await fiscal_secrets.load_csc(db, "producao")
+    except vault.VaultUnavailable:
+        problems.append("o CSC de produção guardado não abre (a chave mestra mudou?): cadastre-o de novo")
+    else:
+        if csc is None:
+            problems.append("cadastre o CSC de produção")
+    return problems
 
 
 async def go_live_problems(db: AsyncSession, data: Any) -> list[str]:
@@ -19,18 +52,7 @@ async def go_live_problems(db: AsyncSession, data: Any) -> list[str]:
     elif not mode_available(data.mode):
         problems.append("o modo escolhido ainda não está disponível neste sistema (em desenvolvimento)")
     elif data.mode == "sefaz_direto":
-        status = await fiscal_secrets.secrets_status(db)
-        certificate = status["certificate"]
-        if not certificate["configured"]:
-            problems.append("cadastre o certificado digital A1")
-        else:
-            if certificate["days_left"] < 0:
-                problems.append("o certificado digital venceu")
-            company_cnpj = re.sub(r"\D", "", data.cnpj or "")
-            if certificate["cnpj"] and company_cnpj and certificate["cnpj"] != company_cnpj:
-                problems.append("o CNPJ do certificado é diferente do CNPJ da empresa")
-        if not status["csc_prod"]["configured"]:
-            problems.append("cadastre o CSC de produção")
+        problems += await _direct_mode_problems(db, data)
 
     if not data.enabled:
         problems.append("ligue a emissão e preencha todos os dados da empresa")

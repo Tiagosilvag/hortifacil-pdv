@@ -27,13 +27,13 @@ def _master_key() -> bytes:
     raw = (app_settings.FISCAL_SECRET_KEY or "").strip()
     if not raw:
         raise VaultUnavailable(f"A chave mestra dos segredos fiscais (FISCAL_SECRET_KEY) não está configurada no servidor: {HOW_TO_CREATE_KEY}.")
-    try:
+    try:  # estrito: só o alfabeto do base64 e com o preenchimento exato, para uma frase escolhida à mão não virar chave
         key = base64.b64decode(raw, validate=True)
     except (binascii.Error, ValueError):
         try:
-            key = base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+            key = base64.b64decode(raw, altchars=b"-_", validate=True)  # a variante urlsafe, também com o preenchimento
         except (binascii.Error, ValueError):
-            raise VaultUnavailable("FISCAL_SECRET_KEY não é um base64 válido.") from None
+            raise VaultUnavailable(f"FISCAL_SECRET_KEY não é um base64 válido: {HOW_TO_CREATE_KEY}.") from None
     if len(key) != KEY_BYTES:
         raise VaultUnavailable(f"FISCAL_SECRET_KEY deve ter {KEY_BYTES} bytes em base64: {HOW_TO_CREATE_KEY}.")
     return key

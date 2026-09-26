@@ -2,8 +2,6 @@
 import asyncio
 import base64
 import os
-from datetime import datetime, timedelta, timezone
-
 import pytest
 
 # `app.core.config` exige estas variáveis já no import.
@@ -13,38 +11,29 @@ os.environ.setdefault("SECRET_KEY", "teste")
 
 from fastapi import HTTPException  # noqa: E402
 
-from app.models.fiscal import FiscalSecret, FiscalSettings  # noqa: E402
+from app.models.fiscal import FiscalSettings  # noqa: E402
 from app.schemas.fiscal import FiscalSettingsIn  # noqa: E402
 from app.services import fiscal_golive as golive  # noqa: E402
 from app.services import fiscal_service as svc  # noqa: E402
 from app.services.fiscal import vault  # noqa: E402
+from tests.fiscal_certs import PASSWORD, make_pfx  # noqa: E402
 
 COMPLETE = dict(cnpj="11222333000181", ie="123456789", legal_name="EMPRESA TESTE LTDA", street="Rua Exemplo", number="100",
                 district="Centro", city="Recife", city_ibge="2611606", state="PE", zip_code="50000000")
-NOW = datetime.now(timezone.utc)
 
 
 def run(coro):
     return asyncio.run(coro)
 
 
-def certificate_row(days_left=300, cnpj="11222333000181"):
-    not_after = NOW + timedelta(days=days_left)
-    return FiscalSecret(kind="certificate", ciphertext=b"x", meta={
-        "subject": "EMPRESA TESTE LTDA:" + (cnpj or ""), "cnpj": cnpj, "not_before": (NOW - timedelta(days=60)).isoformat(),
-        "not_after": not_after.isoformat(), "fingerprint": "ab" * 32})
-
-
-def csc_prod_row():
-    return FiscalSecret(kind="csc_prod", ciphertext=b"x", meta={"id": "1"})
+PFX_OK = make_pfx()
 
 
 class FakeDb:
-    """Responde por tipo de consulta: contagem de vendas de teste, segredos do cofre ou a linha de configuração."""
+    """Responde por tipo de consulta: contagem de vendas de teste ou a linha de configuração (o cofre é trocado por `secrets`)."""
 
-    def __init__(self, hml_authorized=1, secret_rows=(), settings=None):
+    def __init__(self, hml_authorized=1, settings=None):
         self.hml_authorized = hml_authorized
-        self.secret_rows = list(secret_rows)
         self.settings = settings
         self.commits = 0
         self.count_params = []
@@ -52,12 +41,10 @@ class FakeDb:
     async def execute(self, statement):
         text = str(statement)
         if "count(" in text.lower():
-            self.current, self.rows = self.hml_authorized, []
+            self.current = self.hml_authorized
             self.count_params = list(statement.compile().params.values())
-        elif "fiscal_secrets" in text:
-            self.current, self.rows = None, list(self.secret_rows)
         else:
-            self.current, self.rows = self.settings, [self.settings] if self.settings else []
+            self.current = self.settings
         return self
 
     def scalar_one(self):
@@ -65,12 +52,6 @@ class FakeDb:
 
     def scalar_one_or_none(self):
         return self.current
-
-    def scalars(self):
-        return self
-
-    def all(self):
-        return list(self.rows)
 
     def add(self, _obj):
         pass
@@ -82,6 +63,23 @@ class FakeDb:
         pass
 
 
+def secrets(monkeypatch, pfx=PFX_OK, password=PASSWORD, csc=("1", "TOKEN-DO-CSC-1234567890"), cert_error=None, csc_error=None):
+    """O que o cofre entrega à trava (decifrado): o .pfx com a senha e o CSC de produção. `None` = não cadastrado."""
+    async def load_certificate(_db):
+        if cert_error:
+            raise cert_error
+        return None if pfx is None else (pfx, password)
+
+    async def load_csc(_db, environment):
+        assert environment == "producao"
+        if csc_error:
+            raise csc_error
+        return csc
+
+    monkeypatch.setattr(golive.fiscal_secrets, "load_certificate", load_certificate)
+    monkeypatch.setattr(golive.fiscal_secrets, "load_csc", load_csc)
+
+
 def data(**over):
     base = dict(enabled=True, environment="producao", mode="sefaz_direto", production_confirmation=True, **COMPLETE)
     base.update(over)
@@ -90,8 +88,9 @@ def data(**over):
 
 @pytest.fixture
 def adapter_ready(monkeypatch):
-    """Simula o adaptador do modo direto já pronto (ele só chega na etapa E2)."""
+    """Simula o adaptador do modo direto já pronto (ele só chega na etapa E2) e o cofre com certificado e CSC de produção."""
     monkeypatch.setattr(golive, "mode_available", lambda mode: True)
+    secrets(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
@@ -99,43 +98,69 @@ def vault_key(monkeypatch):
     monkeypatch.setattr(vault.app_settings, "FISCAL_SECRET_KEY", base64.b64encode(bytes(range(32))).decode())
 
 
-READY_ROWS = (certificate_row(), csc_prod_row())
-
-
 class TestProblems:
     def test_tudo_pronto_nao_tem_pendencias(self, adapter_ready):
-        assert run(golive.go_live_problems(FakeDb(2, READY_ROWS), data())) == []
+        assert run(golive.go_live_problems(FakeDb(2), data())) == []
 
     def test_so_o_modo_direto_e_real_o_desligado_e_o_de_teste_nao_servem(self, adapter_ready):
         for mode in ("none", "fake"):
-            problems = run(golive.go_live_problems(FakeDb(2, READY_ROWS), data(mode=mode)))
+            problems = run(golive.go_live_problems(FakeDb(2), data(mode=mode)))
             assert any("modo de emissão real" in p for p in problems), mode
 
     def test_modo_direto_ainda_sem_adaptador_no_sistema(self):
-        problems = run(golive.go_live_problems(FakeDb(2, READY_ROWS), data()))  # de verdade: o adaptador chega na E2
+        problems = run(golive.go_live_problems(FakeDb(2), data()))  # de verdade: o adaptador chega na E2
         assert problems == ["o modo escolhido ainda não está disponível neste sistema (em desenvolvimento)"]
 
-    def test_exige_certificado_valido_da_empresa_e_csc_de_producao(self, adapter_ready):
-        assert run(golive.go_live_problems(FakeDb(2, [csc_prod_row()]), data())) == ["cadastre o certificado digital A1"]
-        assert run(golive.go_live_problems(FakeDb(2, [certificate_row(days_left=-3), csc_prod_row()]), data())) == ["o certificado digital venceu"]
-        assert run(golive.go_live_problems(FakeDb(2, [certificate_row(cnpj="99888777000166"), csc_prod_row()]), data())) == [
-            "o CNPJ do certificado é diferente do CNPJ da empresa"]
-        assert run(golive.go_live_problems(FakeDb(2, [certificate_row()]), data())) == ["cadastre o CSC de produção"]
+    def test_exige_certificado_cadastrado_e_csc_de_producao(self, adapter_ready, monkeypatch):
+        secrets(monkeypatch, pfx=None)
+        assert run(golive.go_live_problems(FakeDb(2), data())) == ["cadastre o certificado digital A1"]
+        secrets(monkeypatch, csc=None)
+        assert run(golive.go_live_problems(FakeDb(2), data())) == ["cadastre o CSC de produção"]
+
+    def test_certificado_vencido_ou_ainda_nao_valido_ou_de_outro_cnpj_nao_serve(self, adapter_ready, monkeypatch):
+        secrets(monkeypatch, pfx=make_pfx(valid_from_days=-400, valid_for_days=365))
+        assert any("venceu" in p for p in run(golive.go_live_problems(FakeDb(2), data())))
+        secrets(monkeypatch, pfx=make_pfx(valid_from_days=10, valid_for_days=365))
+        assert any("só vale a partir de" in p for p in run(golive.go_live_problems(FakeDb(2), data())))
+        secrets(monkeypatch, pfx=PFX_OK)
+        assert any("diferente" in p for p in run(golive.go_live_problems(FakeDb(2), data(cnpj="99888777000166"))))
+
+    def test_certificado_sem_cnpj_nao_serve_para_producao(self, adapter_ready, monkeypatch):
+        secrets(monkeypatch, pfx=make_pfx(cnpj_in_cn=None))
+        problems = run(golive.go_live_problems(FakeDb(2), data()))
+        assert problems == ["o certificado digital não traz o CNPJ da empresa: use um e-CNPJ A1"]
+
+    def test_senha_guardada_que_nao_abre_o_pfx_e_pendencia(self, adapter_ready, monkeypatch):
+        secrets(monkeypatch, password="outra-senha")
+        problems = run(golive.go_live_problems(FakeDb(2), data()))
+        assert len(problems) == 1 and "não serve" in problems[0] and "incorreta" in problems[0]
+
+    def test_sem_chave_mestra_o_cofre_nao_abre_e_a_trava_nao_libera(self, adapter_ready, monkeypatch):
+        monkeypatch.setattr(vault.app_settings, "FISCAL_SECRET_KEY", "")
+        problems = run(golive.go_live_problems(FakeDb(2), data()))
+        assert len(problems) == 1 and "FISCAL_SECRET_KEY" in problems[0]
+
+    def test_segredo_que_nao_decifra_mais_e_pendencia(self, adapter_ready, monkeypatch):
+        broken = vault.VaultUnavailable("mudou")
+        secrets(monkeypatch, cert_error=broken, csc_error=broken)
+        problems = run(golive.go_live_problems(FakeDb(2), data()))
+        assert problems == ["o certificado digital guardado não abre (a chave mestra mudou?): cadastre-o de novo",
+                            "o CSC de produção guardado não abre (a chave mestra mudou?): cadastre-o de novo"]
 
     def test_exige_uma_venda_de_teste_autorizada_em_homologacao(self, adapter_ready):
-        assert run(golive.go_live_problems(FakeDb(0, READY_ROWS), data())) == ["faça ao menos uma venda de teste autorizada em homologação"]
+        assert run(golive.go_live_problems(FakeDb(0), data())) == ["faça ao menos uma venda de teste autorizada em homologação"]
 
     def test_venda_de_teste_autorizada_e_depois_cancelada_tambem_conta(self, adapter_ready):
-        db = FakeDb(1, READY_ROWS)
+        db = FakeDb(1)
         assert run(golive.go_live_problems(db, data())) == []
         assert ["authorized", "cancelled"] in db.count_params  # o filtro aceita as duas situações
 
     def test_exige_a_confirmacao_do_contador(self, adapter_ready):
-        assert run(golive.go_live_problems(FakeDb(1, READY_ROWS), data(production_confirmation=False))) == [
+        assert run(golive.go_live_problems(FakeDb(1), data(production_confirmation=False))) == [
             "confirme que o contador validou o cupom emitido em homologação"]
 
     def test_exige_a_emissao_ligada_com_os_dados_da_empresa(self, adapter_ready):
-        problems = run(golive.go_live_problems(FakeDb(1, READY_ROWS), FiscalSettingsIn(
+        problems = run(golive.go_live_problems(FakeDb(1), FiscalSettingsIn(
             enabled=False, environment="producao", mode="sefaz_direto", production_confirmation=True, cnpj="11222333000181")))
         assert problems == ["ligue a emissão e preencha todos os dados da empresa"]
 
@@ -159,7 +184,7 @@ class TestSaveSettings:
 
     def test_libera_registra_quem_confirmou_e_nao_grava_o_campo_de_confirmacao(self, adapter_ready):
         r = row()
-        db = FakeDb(1, READY_ROWS, settings=r)
+        db = FakeDb(1, settings=r)
         run(svc.save_settings(db, data(), "Maria"))
         assert r.environment == "producao" and r.mode == "sefaz_direto" and r.production_confirmed_by == "Maria"
         assert r.production_confirmed_at is not None and not hasattr(r, "production_confirmation") and db.commits == 1

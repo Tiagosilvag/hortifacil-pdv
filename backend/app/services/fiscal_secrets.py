@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fiscal import FiscalSecret
@@ -43,6 +44,15 @@ async def _upsert(db: AsyncSession, kind: str, plaintext: bytes, meta: dict[str,
     row.updated_by_name = user_name
 
 
+async def _commit_or_409(db: AsyncSession) -> None:
+    """Dois envios ao mesmo tempo do primeiro segredo disputam a linha única do tipo: quem perde recebe um aviso, não um erro 500."""
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Outro envio dos mesmos dados aconteceu ao mesmo tempo. Confira a tela e envie de novo.") from None
+
+
 async def save_certificate(db: AsyncSession, pfx: bytes, password: str, company_cnpj: str | None, user_name: str) -> cert.CertInfo:
     if not pfx or len(pfx) > MAX_PFX_BYTES:
         raise HTTPException(status_code=422, detail="Envie o arquivo do certificado (.pfx, até 1 MB).")
@@ -60,7 +70,7 @@ async def save_certificate(db: AsyncSession, pfx: bytes, password: str, company_
     }
     await _upsert(db, KIND_CERTIFICATE, pfx, meta, user_name)
     await _upsert(db, KIND_CERTIFICATE_PASSWORD, password.encode("utf-8"), None, user_name)
-    await db.commit()
+    await _commit_or_409(db)
     return info
 
 
@@ -75,7 +85,7 @@ async def save_csc(db: AsyncSession, environment: str, csc_id: str, token: str, 
         raise HTTPException(status_code=422, detail="O CSC (código) parece curto demais: confira o valor gerado na SEFAZ.")
     _vault_or_409()
     await _upsert(db, kind, json.dumps({"id": csc_id, "token": token}).encode("utf-8"), {"id": csc_id}, user_name)
-    await db.commit()
+    await _commit_or_409(db)
 
 
 async def delete_certificate(db: AsyncSession) -> None:

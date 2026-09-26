@@ -25,6 +25,7 @@ import { Input, Select } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { FiscalDefault, FiscalEnvironment, FiscalMode, FiscalSecrets, FiscalSettings } from '@/types/fiscal'
 import {
+  certificateFileProblem,
   certificateSummary,
   certificateVariant,
   cleanValidationMessage,
@@ -222,8 +223,9 @@ function ProductionModal({ onCancel, onConfirm }: { onCancel: () => void; onConf
       <div className="flex flex-col gap-4 text-sm text-slate-700 dark:text-slate-300">
         <p>
           Em produção, cada nota emitida <strong>vale como nota fiscal de verdade</strong> e o cancelamento tem prazo. O sistema só
-          libera se: o servidor tiver um provedor fiscal real configurado, houver ao menos uma venda de teste autorizada em
-          homologação e a emissão estiver ligada com todos os dados da empresa. Se algo faltar, ele diz o quê.
+          libera se: o modo de emissão for real (SEFAZ direto) e estiver pronto, com o certificado digital da empresa dentro da
+          validade e o CSC de produção cadastrados, houver ao menos uma venda de teste autorizada em homologação e a emissão
+          estiver ligada com todos os dados da empresa. Se algo faltar, ele diz o quê.
         </p>
         <label className="flex items-start gap-2">
           <input type="checkbox" checked={accountant} onChange={(e) => setAccountant(e.target.checked)} className="mt-1" />
@@ -287,14 +289,26 @@ function CscRow({
         <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</h3>
         {status.configured ? <Badge variant="green">Cadastrado (ID {status.id})</Badge> : <Badge variant="slate">Não cadastrado</Badge>}
         {status.configured && (
-          <button className="text-sm text-red-600 hover:underline dark:text-red-400" disabled={remove.isPending} onClick={() => remove.mutate()}>
+          <button
+            className="text-sm text-red-600 hover:underline dark:text-red-400"
+            aria-label={`Remover ${label}`}
+            disabled={remove.isPending}
+            onClick={() => window.confirm(`Remover o ${label}? A emissão nesse ambiente para de funcionar até cadastrar de novo.`) && remove.mutate()}
+          >
             Remover
           </button>
         )}
       </div>
       <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[8rem_1fr_auto]">
-        <Input label="ID do CSC" placeholder="Ex.: 1" inputMode="numeric" value={id} onChange={(e) => setId(e.target.value)} />
-        <Input label="Código do CSC" type="password" autoComplete="new-password" value={token} onChange={(e) => setToken(e.target.value)} />
+        <Input id={`csc-${environment}-id`} label="ID do CSC" placeholder="Ex.: 1" inputMode="numeric" value={id} onChange={(e) => setId(e.target.value)} />
+        <Input
+          id={`csc-${environment}-token`}
+          label="Código do CSC"
+          type="password"
+          autoComplete="new-password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+        />
         <div className="flex items-end">
           <Button size="sm" variant="secondary" disabled={disabled || !id || !token} loading={save.isPending} onClick={() => save.mutate()}>
             {status.configured ? 'Trocar' : 'Guardar'}
@@ -308,7 +322,7 @@ function CscRow({
 /** Cofre do modo direto: certificado digital A1 e CSC. Tudo é cifrado no servidor e nada secreto volta para esta tela. */
 function SecretsCard() {
   const qc = useQueryClient()
-  const { data: secrets } = useQuery({ queryKey: ['fiscal', 'secrets'], queryFn: getFiscalSecrets })
+  const { data: secrets, isError } = useQuery({ queryKey: ['fiscal', 'secrets'], queryFn: getFiscalSecrets })
   const [file, setFile] = useState<File | null>(null)
   const [password, setPassword] = useState('')
   const [fileKey, setFileKey] = useState(0)
@@ -332,7 +346,15 @@ function SecretsCard() {
   })
   const removeCertificate = useMutation({ mutationFn: deleteCertificate, onSuccess: () => done('Certificado removido.'), onError: fail })
 
+  if (isError) {
+    return (
+      <div role="alert" className={`${cardClass} text-sm text-red-700 dark:text-red-400`}>
+        Não foi possível ler o que está cadastrado no cofre de segredos. Recarregue a página; se continuar, veja o servidor.
+      </div>
+    )
+  }
   if (!secrets) return null
+  const fileProblem = certificateFileProblem(file)
   const locked = !secrets.vault_available
   const summary = certificateSummary(secrets.certificate)
 
@@ -355,7 +377,14 @@ function SecretsCard() {
         <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Certificado A1</h3>
         {summary ? <Badge variant={certificateVariant(secrets.certificate.level)}>{summary}</Badge> : <Badge variant="slate">Nenhum certificado cadastrado</Badge>}
         {secrets.certificate.configured && (
-          <button className="text-sm text-red-600 hover:underline dark:text-red-400" disabled={removeCertificate.isPending} onClick={() => removeCertificate.mutate()}>
+          <button
+            className="text-sm text-red-600 hover:underline dark:text-red-400"
+            aria-label="Remover certificado digital"
+            disabled={removeCertificate.isPending}
+            onClick={() =>
+              window.confirm('Remover o certificado digital? A emissão pelo modo direto para de funcionar até cadastrar um novo.') && removeCertificate.mutate()
+            }
+          >
             Remover
           </button>
         )}
@@ -374,11 +403,17 @@ function SecretsCard() {
         </div>
         <Input label="Senha do certificado" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <div className="flex items-end">
-          <Button size="sm" variant="secondary" disabled={locked || !file || !password} loading={upload.isPending} onClick={() => upload.mutate()}>
+          <Button size="sm" variant="secondary" disabled={locked || !file || !password || !!fileProblem} loading={upload.isPending} onClick={() => upload.mutate()}>
             {secrets.certificate.configured ? 'Trocar' : 'Enviar'}
           </Button>
         </div>
       </div>
+
+      {fileProblem && (
+        <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-400">
+          {fileProblem}
+        </p>
+      )}
 
       <CscRow environment="homologacao" label="CSC de homologação" status={secrets.csc_hml} disabled={locked} onDone={done} onError={fail} />
       <CscRow environment="producao" label="CSC de produção" status={secrets.csc_prod} disabled={locked} onDone={done} onError={fail} />
@@ -568,9 +603,9 @@ export function FiscalTab() {
           )}
         </div>
       )}
-      {status && !status.provider_configured && (
+      {status && !status.provider_configured && status.mode !== 'none' && (
         <div role="alert" className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          Este servidor ainda não tem provedor fiscal configurado. Mesmo com a emissão ligada aqui, nenhuma nota é emitida.
+          O modo de emissão escolhido ainda não emite notas neste servidor. Mesmo com a emissão ligada aqui, nenhuma nota é emitida.
         </div>
       )}
 

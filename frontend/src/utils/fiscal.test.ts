@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canRefreshFiscal,
   cancelReasonError,
+  certificateFileProblem,
   certificateSummary,
   certificateVariant,
   cleanValidationMessage,
@@ -179,6 +180,7 @@ describe('modo de emissão', () => {
 
   it('o aviso diz o que o modo faz hoje', () => {
     expect(modeNotice('none', false)).toMatch(/desligada/)
+    expect(modeNotice('none', false)).toMatch(/já tem NFC-e autorizada/) // desligar não permite cancelar nota de outro modo
     expect(modeNotice('sefaz_direto', false)).toMatch(/em desenvolvimento/)
     expect(modeNotice('sefaz_direto', true)).toBeNull()
     expect(modeNotice('fake', true)).toMatch(/simuladas/)
@@ -198,6 +200,14 @@ describe('certificado digital', () => {
   it('resume titular, validade e dias que faltam', () => {
     expect(certificateSummary({ ...base, days_left: 300 })).toBe('Certificado de EMPRESA TESTE LTDA, válido até 08/2027 (faltam 300 dias)')
     expect(certificateSummary({ ...base, days_left: 1 })).toContain('falta 1 dia')
+  })
+
+  it('o arquivo do certificado é conferido antes de enviar (vazio ou acima de 1 MB)', () => {
+    expect(certificateFileProblem(null)).toBeNull()
+    expect(certificateFileProblem({ size: 4_000 })).toBeNull()
+    expect(certificateFileProblem({ size: 1_000_000 })).toBeNull()
+    expect(certificateFileProblem({ size: 0 })).toMatch(/vazio/)
+    expect(certificateFileProblem({ size: 1_000_001 })).toMatch(/passa de 1 MB/)
   })
 
   it('vencido pede um novo; sem certificado não há resumo', () => {

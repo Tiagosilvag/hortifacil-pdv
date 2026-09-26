@@ -15,6 +15,7 @@ os.environ.setdefault("DATABASE_URL_SYNC", "postgresql://teste:teste@localhost/t
 os.environ.setdefault("SECRET_KEY", "teste")
 
 from fastapi import HTTPException  # noqa: E402
+from sqlalchemy.exc import IntegrityError  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api.deps import get_current_user  # noqa: E402
@@ -108,7 +109,8 @@ class TestCertificado:
         pytest.param(None, PASSWORD, CNPJ, "Envie o arquivo", id="sem-arquivo"),
         pytest.param(b"", PASSWORD, CNPJ, "Envie o arquivo", id="arquivo-vazio"),
         pytest.param(b"x" * 1_000_001, PASSWORD, CNPJ, "até 1 MB", id="arquivo-grande"),
-        pytest.param("valido", "errada", CNPJ, "confira a senha", id="senha-errada"),
+        pytest.param("valido", "errada", CNPJ, "senha está incorreta", id="senha-errada"),
+        pytest.param(b"isto nao e um pfx", PASSWORD, CNPJ, "não é um certificado", id="arquivo-que-nao-e-pfx"),
         pytest.param("valido", PASSWORD, "99888777000166", "diferente", id="outro-cnpj"),
     ])
     def test_recusas_em_portugues_sem_gravar_nada(self, pfx, password, cnpj, message):
@@ -130,6 +132,25 @@ class TestCertificado:
         with pytest.raises(HTTPException) as info:
             run(secrets.save_certificate(db, make_pfx(), PASSWORD, CNPJ, "Maria"))
         assert info.value.status_code == 409 and "FISCAL_SECRET_KEY" in info.value.detail and db.store == []
+
+    def test_dois_envios_ao_mesmo_tempo_perdem_a_corrida_com_aviso_em_portugues(self):
+        class RacingDb(MemoryDb):
+            rolled_back = False
+
+            async def commit(self):
+                raise IntegrityError("INSERT", {}, Exception("duplicate key value violates unique constraint"))
+
+            async def rollback(self):
+                self.rolled_back = True
+
+        db = RacingDb()
+        with pytest.raises(HTTPException) as info:
+            run(secrets.save_certificate(db, make_pfx(), PASSWORD, CNPJ, "Maria"))
+        assert info.value.status_code == 409 and "ao mesmo tempo" in info.value.detail and db.rolled_back
+        assert "duplicate" not in info.value.detail  # a mensagem do banco (em inglês) não vaza
+        with pytest.raises(HTTPException) as again:
+            run(secrets.save_csc(RacingDb(), "producao", "1", CSC_TOKEN, "Maria"))
+        assert again.value.status_code == 409
 
     def test_remover_apaga_o_certificado_e_a_senha(self):
         db = MemoryDb()
@@ -247,7 +268,7 @@ class TestRotas:
 
     def test_senha_errada_e_422_em_portugues(self, client):
         response = client().put("/api/v1/fiscal/secrets/certificate", files={"file": ("e.pfx", make_pfx())}, data={"password": "errada"})
-        assert response.status_code == 422 and "confira a senha" in response.json()["detail"]
+        assert response.status_code == 422 and "senha está incorreta" in response.json()["detail"]
 
     def test_certificado_de_outro_cnpj_e_recusado_pelo_cnpj_da_empresa_cadastrada(self, client):
         response = client(db=MemoryDb(company("99888777000166"))).put(

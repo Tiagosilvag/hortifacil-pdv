@@ -22,10 +22,19 @@ class TestInspect:
     def test_certificado_sem_cnpj_devolve_none(self):
         assert cert.inspect_pfx(make_pfx(cnpj_in_cn=None), PASSWORD).cnpj is None
 
-    def test_senha_errada_ou_arquivo_que_nao_e_pfx_da_mensagem_em_portugues(self):
-        for data, password in ((make_pfx(), "errada"), (b"isto nao e um pfx", PASSWORD), (b"", PASSWORD)):
-            with pytest.raises(cert.CertificateError, match="confira a senha"):
-                cert.inspect_pfx(data, password)
+    def test_senha_errada_diz_que_a_senha_esta_incorreta(self):
+        with pytest.raises(cert.CertificateError, match="senha está incorreta"):
+            cert.inspect_pfx(make_pfx(), "errada")
+
+    def test_arquivo_que_nao_e_pfx_diz_que_nao_e_um_certificado(self):
+        for data in (b"isto nao e um pfx", b"", b"\x00\x01\x02"):
+            with pytest.raises(cert.CertificateError, match="não é um certificado"):
+                cert.inspect_pfx(data, PASSWORD)
+
+    def test_pfx_corrompido_nao_e_confundido_com_senha_errada(self):
+        broken = make_pfx()[:40]  # começa como um .pfx, mas está cortado
+        with pytest.raises(cert.CertificateError, match="incorreta ou o arquivo está corrompido"):
+            cert.inspect_pfx(broken, PASSWORD)
 
     def test_pfx_sem_chave_privada_e_recusado(self):
         with pytest.raises(cert.CertificateError, match="chave privada"):
