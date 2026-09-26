@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, formatPayment, formatStatus, formatUnit } f
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getApiError } from '@/api/client'
+import { cancelReasonError, cleanValidationMessage } from '@/utils/fiscal'
 import { useAuthStore } from '@/stores/auth'
 import { PrintReceiptButton } from '@/components/fiscal/PrintReceiptButton'
 import { FiscalCard } from '@/components/fiscal/FiscalCard'
@@ -34,6 +35,7 @@ export default function OrderDetail() {
 
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
 
   const [invoiceEdit, setInvoiceEdit] = useState(false)
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -64,7 +66,10 @@ export default function OrderDetail() {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       setShowCancelModal(false)
       setCancelReason('')
+      setCancelError('')
     },
+    // Ex.: prazo da NFC-e passou, SEFAZ recusou, provedor fora do ar: o pedido continua como estava.
+    onError: (err) => setCancelError(cleanValidationMessage(getApiError(err))),
   })
 
   const invoiceMutation = useMutation({
@@ -409,13 +414,27 @@ export default function OrderDetail() {
               Esta ação irá cancelar o pedido
               {order.payment_type === 'installment' && ' e reverter o saldo do fiado do cliente'}.
             </p>
+            {order.fiscal_status === 'authorized' && (
+              <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                Este pedido tem uma <strong>NFC-e autorizada</strong>. Cancelar o pedido também cancela a nota na SEFAZ, e isso só é possível
+                dentro do prazo. Se o prazo tiver passado, o pedido <strong>não</strong> é cancelado: procure o contador. O motivo vai para a SEFAZ.
+              </div>
+            )}
             <textarea
               value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Motivo do cancelamento (opcional)..."
+              onChange={(e) => {
+                setCancelReason(e.target.value)
+                setCancelError('')
+              }}
+              placeholder={
+                order.fiscal_status === 'authorized'
+                  ? 'Motivo do cancelamento (obrigatório, mínimo 15 caracteres)...'
+                  : 'Motivo do cancelamento (opcional)...'
+              }
               rows={2}
               className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 resize-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
+            {cancelError && <p className="mb-3 text-sm text-red-700 dark:text-red-400">{cancelError}</p>}
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setShowCancelModal(false)}>
                 Voltar
@@ -424,6 +443,7 @@ export default function OrderDetail() {
                 variant="danger"
                 className="flex-1"
                 loading={cancelMutation.isPending}
+                disabled={!!cancelReasonError(cancelReason, order.fiscal_status === 'authorized')}
                 onClick={() => cancelMutation.mutate()}
               >
                 Cancelar pedido
