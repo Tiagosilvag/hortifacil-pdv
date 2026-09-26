@@ -1,4 +1,4 @@
-import type { FiscalFieldKey, FiscalFields, FiscalStatus, OrderFiscal } from '@/types/fiscal'
+import type { CertificateLevel, CertificateStatus, FiscalFieldKey, FiscalFields, FiscalMode, FiscalStatus, OrderFiscal } from '@/types/fiscal'
 
 export const FISCAL_STATUS_LABEL: Record<FiscalStatus, string> = {
   not_required: 'Sem NFC-e',
@@ -79,7 +79,10 @@ export const ORIGEM_OPTIONS: { value: number; label: string }[] = [
 /** Valores dos campos fiscais como texto, do jeito que os inputs do formulário os guardam. */
 export type FiscalFormValues = Record<FiscalFieldKey, string>
 
-export const FISCAL_KEYS: FiscalFieldKey[] = ['ncm', 'cest', 'origem', 'cfop', 'cst_icms', 'aliquota_icms', 'cst_pis', 'cst_cofins']
+export const FISCAL_KEYS: FiscalFieldKey[] = [
+  'ncm', 'cest', 'origem', 'cfop', 'cst_icms', 'aliquota_icms', 'cst_pis', 'cst_cofins',
+  'cst_ibs_cbs', 'c_class_trib', 'aliquota_ibs', 'aliquota_cbs',
+]
 
 export function fiscalFormDefaults(source?: Partial<FiscalFields> | null): FiscalFormValues {
   const values = {} as FiscalFormValues
@@ -99,6 +102,10 @@ export type FiscalPayload = Partial<{
   aliquota_icms: string
   cst_pis: string
   cst_cofins: string
+  cst_ibs_cbs: string
+  c_class_trib: string
+  aliquota_ibs: string
+  aliquota_cbs: string
 }>
 
 /**
@@ -111,7 +118,7 @@ export function fiscalPayload(values: FiscalFormValues): FiscalPayload {
     const text = (values[key] ?? '').trim()
     if (!text) continue
     if (key === 'origem') payload.origem = Number(text)
-    else if (key === 'aliquota_icms') payload.aliquota_icms = text.replace(',', '.')
+    else if (key === 'aliquota_icms' || key === 'aliquota_ibs' || key === 'aliquota_cbs') payload[key] = text.replace(',', '.')
     else payload[key] = text
   }
   return payload
@@ -165,4 +172,45 @@ export function canRefreshFiscal(order: OrderLike): boolean {
 export function isProductionWord(text: string): boolean {
   const word = text.trim().toUpperCase()
   return word === 'PRODUÇÃO' || word === 'PRODUCAO'
+}
+
+export interface ModeOption {
+  value: FiscalMode
+  label: string
+}
+
+/** Modos de emissão que a tela oferece. O provedor falso só existe em desenvolvimento (o servidor recusa fora dele). */
+export function modeOptions(current: FiscalMode, development: boolean): ModeOption[] {
+  const options: ModeOption[] = [
+    { value: 'none', label: 'Nenhum (emissão desligada)' },
+    { value: 'sefaz_direto', label: 'SEFAZ direto (certificado digital A1)' },
+  ]
+  if (development || current === 'fake') options.push({ value: 'fake', label: 'Provedor de teste (só desenvolvimento)' })
+  return options
+}
+
+/** Aviso sob o seletor de modo: o que esse modo faz hoje. `null` quando não há nada a avisar. */
+export function modeNotice(mode: FiscalMode, available: boolean): string | null {
+  if (mode === 'none') return 'Com a emissão desligada, nenhuma NFC-e é emitida e o PDV funciona como sempre.'
+  if (mode === 'sefaz_direto' && !available) {
+    return 'O envio direto à SEFAZ ainda está em desenvolvimento neste sistema: dá para cadastrar o certificado e o CSC agora, mas nenhuma nota é emitida neste modo.'
+  }
+  if (mode === 'fake') return 'Modo de teste: as notas são simuladas e não existem na SEFAZ.'
+  return null
+}
+
+const CERTIFICATE_VARIANT: Record<CertificateLevel, 'green' | 'amber' | 'red'> = { ok: 'green', warn: 'amber', critical: 'red' }
+
+export function certificateVariant(level: CertificateLevel | null | undefined): 'green' | 'amber' | 'red' | 'slate' {
+  return level ? CERTIFICATE_VARIANT[level] : 'slate'
+}
+
+/** "Certificado de EMPRESA…, válido até 12/2026 (faltam 300 dias)" ou o aviso de vencido. Sem certificado: `null`. */
+export function certificateSummary(certificate: CertificateStatus): string | null {
+  if (!certificate.configured || !certificate.not_after) return null
+  const until = new Date(certificate.not_after).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })
+  const days = certificate.days_left ?? 0
+  const owner = certificate.subject ? `Certificado de ${certificate.subject}` : 'Certificado cadastrado'
+  if (days < 0) return `${owner}: VENCIDO em ${until}. Cadastre um novo.`
+  return `${owner}, válido até ${until} (${days === 1 ? 'falta 1 dia' : `faltam ${days} dias`})`
 }

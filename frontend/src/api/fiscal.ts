@@ -3,7 +3,9 @@ import type { Order } from '@/types'
 import type {
   FiscalDefault,
   FiscalEnvironment,
+  FiscalMode,
   FiscalRegime,
+  FiscalSecrets,
   FiscalSettings,
   FiscalStatusInfo,
   PendingProduct,
@@ -24,6 +26,7 @@ export interface FiscalSettingsBody {
   enabled: boolean
   environment: FiscalEnvironment
   regime: FiscalRegime
+  mode?: FiscalMode
   series: number
   cnpj: string | null
   ie: string | null
@@ -42,6 +45,36 @@ export interface FiscalSettingsBody {
 
 export async function saveFiscalSettings(body: FiscalSettingsBody): Promise<FiscalSettings> {
   const { data } = await api.put<FiscalSettings>('/fiscal/settings', body)
+  return data
+}
+
+/** O que está cadastrado no cofre (certificado, CSC), sem nenhum conteúdo secreto. */
+export async function getFiscalSecrets(): Promise<FiscalSecrets> {
+  const { data } = await api.get<FiscalSecrets>('/fiscal/secrets')
+  return data
+}
+
+/** Envia o .pfx e a senha. O servidor confere senha, validade e CNPJ e guarda cifrado; a resposta não traz segredo. */
+export async function uploadCertificate(file: File, password: string): Promise<FiscalSecrets> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('password', password)
+  const { data } = await api.put<FiscalSecrets>('/fiscal/secrets/certificate', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  return data
+}
+
+export async function deleteCertificate(): Promise<FiscalSecrets> {
+  const { data } = await api.delete<FiscalSecrets>('/fiscal/secrets/certificate')
+  return data
+}
+
+export async function saveCsc(environment: FiscalEnvironment, id: string, token: string): Promise<FiscalSecrets> {
+  const { data } = await api.put<FiscalSecrets>(`/fiscal/secrets/csc/${environment}`, { id, token })
+  return data
+}
+
+export async function deleteCsc(environment: FiscalEnvironment): Promise<FiscalSecrets> {
+  const { data } = await api.delete<FiscalSecrets>(`/fiscal/secrets/csc/${environment}`)
   return data
 }
 

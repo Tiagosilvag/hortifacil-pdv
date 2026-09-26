@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   canRefreshFiscal,
   cancelReasonError,
+  certificateSummary,
+  certificateVariant,
   cleanValidationMessage,
   describeFiscal,
   digitsOnly,
@@ -14,6 +16,8 @@ import {
   isFiscalSettled,
   isProductionWord,
   MAX_FISCAL_POLLS,
+  modeNotice,
+  modeOptions,
   summarizeDefault,
 } from './fiscal'
 
@@ -74,6 +78,7 @@ describe('formulário dos dados fiscais', () => {
   it('produto sem dados fiscais abre com campos vazios', () => {
     expect(fiscalFormDefaults(null)).toEqual({
       ncm: '', cest: '', origem: '', cfop: '', cst_icms: '', aliquota_icms: '', cst_pis: '', cst_cofins: '',
+      cst_ibs_cbs: '', c_class_trib: '', aliquota_ibs: '', aliquota_cbs: '',
     })
   })
 
@@ -88,6 +93,11 @@ describe('formulário dos dados fiscais', () => {
     expect(fiscalPayload(fiscalFormDefaults(null))).toEqual({})
     const values = { ...fiscalFormDefaults(null), ncm: ' 0803.90.00 ', origem: '0', aliquota_icms: '20,5', cst_icms: '41' }
     expect(fiscalPayload(values)).toEqual({ ncm: '0803.90.00', origem: 0, aliquota_icms: '20.5', cst_icms: '41' })
+  })
+
+  it('os campos da reforma tributária vão no corpo, com a vírgula das alíquotas trocada por ponto', () => {
+    const values = { ...fiscalFormDefaults(null), cst_ibs_cbs: '000', c_class_trib: '000001', aliquota_ibs: '0,1', aliquota_cbs: '0,9' }
+    expect(fiscalPayload(values)).toEqual({ cst_ibs_cbs: '000', c_class_trib: '000001', aliquota_ibs: '0.1', aliquota_cbs: '0.9' })
   })
 
   it('origem 0 vai como número 0 (não some do corpo)', () => {
@@ -158,4 +168,40 @@ describe('consultar situação da nota', () => {
 it('a palavra de confirmação da produção aceita acento e qualquer caixa', () => {
   for (const ok of ['PRODUÇÃO', 'produção', ' Producao ', 'PRODUCAO']) expect(isProductionWord(ok)).toBe(true)
   for (const bad of ['', 'produ', 'homologação', 'PRODUÇÃO!']) expect(isProductionWord(bad)).toBe(false)
+})
+
+describe('modo de emissão', () => {
+  it('o provedor de teste só é oferecido em desenvolvimento (ou se já estiver salvo)', () => {
+    expect(modeOptions('none', false).map((o) => o.value)).toEqual(['none', 'sefaz_direto'])
+    expect(modeOptions('none', true).map((o) => o.value)).toEqual(['none', 'sefaz_direto', 'fake'])
+    expect(modeOptions('fake', false).map((o) => o.value)).toContain('fake')
+  })
+
+  it('o aviso diz o que o modo faz hoje', () => {
+    expect(modeNotice('none', false)).toMatch(/desligada/)
+    expect(modeNotice('sefaz_direto', false)).toMatch(/em desenvolvimento/)
+    expect(modeNotice('sefaz_direto', true)).toBeNull()
+    expect(modeNotice('fake', true)).toMatch(/simuladas/)
+  })
+})
+
+describe('certificado digital', () => {
+  const base = { configured: true, subject: 'EMPRESA TESTE LTDA', not_after: '2027-08-15T12:00:00+00:00' }
+
+  it('a cor segue a urgência do vencimento', () => {
+    expect(certificateVariant('ok')).toBe('green')
+    expect(certificateVariant('warn')).toBe('amber')
+    expect(certificateVariant('critical')).toBe('red')
+    expect(certificateVariant(null)).toBe('slate')
+  })
+
+  it('resume titular, validade e dias que faltam', () => {
+    expect(certificateSummary({ ...base, days_left: 300 })).toBe('Certificado de EMPRESA TESTE LTDA, válido até 08/2027 (faltam 300 dias)')
+    expect(certificateSummary({ ...base, days_left: 1 })).toContain('falta 1 dia')
+  })
+
+  it('vencido pede um novo; sem certificado não há resumo', () => {
+    expect(certificateSummary({ ...base, days_left: -2 })).toMatch(/VENCIDO em 08\/2027\. Cadastre um novo\./)
+    expect(certificateSummary({ configured: false })).toBeNull()
+  })
 })

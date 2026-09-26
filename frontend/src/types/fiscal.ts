@@ -8,6 +8,11 @@ export interface FiscalFields {
   aliquota_icms: number | string | null // a API devolve Decimal como texto
   cst_pis: string | null
   cst_cofins: string | null
+  // Reforma tributária (grupo IBS/CBS): os valores vêm do contador
+  cst_ibs_cbs: string | null
+  c_class_trib: string | null
+  aliquota_ibs: number | string | null
+  aliquota_cbs: number | string | null
 }
 
 export type FiscalFieldKey = keyof FiscalFields
@@ -30,10 +35,14 @@ export interface OrderFiscal {
 export type FiscalRegime = 'normal' | 'simples'
 export type FiscalEnvironment = 'homologacao' | 'producao'
 
+/** Como a nota é emitida: desligado, direto na SEFAZ (certificado A1) ou o provedor falso (só em desenvolvimento). */
+export type FiscalMode = 'none' | 'sefaz_direto' | 'fake'
+
 export interface FiscalSettings {
   enabled: boolean
   environment: FiscalEnvironment
   regime: FiscalRegime
+  mode: FiscalMode
   series: number
   cancel_window_minutes: number
   cnpj: string | null
@@ -74,8 +83,36 @@ export interface FiscalIssuer {
 export interface FiscalStatusInfo {
   enabled: boolean
   provider_configured: boolean
+  /** Modo em vigor e se o adaptador dele já existe neste sistema. */
+  mode: FiscalMode
+  mode_available: boolean
   environment: FiscalEnvironment
   issuer: FiscalIssuer | null
+}
+
+export type CertificateLevel = 'ok' | 'warn' | 'critical'
+
+/** O que a tela sabe do certificado: só dados públicos (nunca o arquivo nem a senha). */
+export interface CertificateStatus {
+  configured: boolean
+  subject?: string | null
+  cnpj?: string | null
+  not_after?: string | null
+  days_left?: number | null
+  level?: CertificateLevel | null
+}
+
+export interface CscStatus {
+  configured: boolean
+  id?: string | null
+}
+
+/** Resposta de GET /fiscal/secrets. `vault_available` = o servidor tem a chave mestra dos segredos. */
+export interface FiscalSecrets {
+  vault_available: boolean
+  certificate: CertificateStatus
+  csc_hml: CscStatus
+  csc_prod: CscStatus
 }
 
 export interface PendingProduct {
